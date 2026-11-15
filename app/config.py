@@ -41,6 +41,17 @@ class Settings(BaseSettings):
         "postgresql+psycopg://agent_reader:reader_pw@localhost:5433/finquery"
     )
 
+    # API and UI
+    api_rate_limit_per_minute: int = 20  # /ask requests per client IP
+    api_max_concurrent: int = 4  # questions being answered at once, over all clients
+    cors_origins: str = "http://localhost:8501"  # comma-separated; the UI's origin
+    api_url: str = "http://localhost:8000"  # where the UI finds the API
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        """`CORS_ORIGINS` split on commas, without blanks."""
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
     @property
     def fallback_models(self) -> list[str]:
         """`LLM_FALLBACK_MODELS` split on commas, without blanks."""

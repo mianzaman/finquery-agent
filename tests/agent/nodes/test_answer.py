@@ -10,7 +10,13 @@ from langchain_core.messages import AIMessage, BaseMessage
 from app import llm
 from app.agent.nodes import answer as answer_module
 from app.agent.nodes import generate_sql as generate_module
-from app.agent.nodes.answer import MAX_PROMPT_ROWS, answer, format_rows, format_value
+from app.agent.nodes.answer import (
+    MAX_ANSWER_CHARS,
+    MAX_PROMPT_ROWS,
+    answer,
+    format_rows,
+    format_value,
+)
 from app.agent.state import AgentState
 from app.db.reference import Company
 from app.llm import LLMError, RateLimitedError
@@ -110,11 +116,11 @@ def test_a_line_broken_reply_becomes_one_line(model: ScriptedChat) -> None:
     [
         (
             {"validation_error": "bad SQL", "attempts": 2},
-            "I could not answer this: the query still failed after 2 repairs (bad SQL).",
+            "I could not answer this: the query still failed after 2 repairs.",
         ),
         (
-            {"db_error": "timeout", "attempts": 2, "rows": [(1,)]},
-            "I could not answer this: the query still failed after 2 repairs (timeout).",
+            {"db_error": 'relation "secrets" does not exist', "attempts": 1, "rows": [(1,)]},
+            "I could not answer this: the query still failed after 1 repair.",
         ),
     ],
 )
@@ -123,10 +129,20 @@ def test_a_failed_query_gets_a_fixed_sentence_without_a_model_call(
 ) -> None:
     update = answer(state)
 
+    error = state.get("validation_error") or state.get("db_error")
     assert set(update) == {"answer", "trace"}
-    assert update["answer"] == expected
-    assert update["trace"][0]["note"] == "gave up"
+    assert update["answer"] == expected  # the error is not shown to the user
+    assert update["trace"][0]["note"] == f"gave up: {error}"  # it is kept in the trace
     assert model.seen == []
+
+
+def test_an_overlong_reply_is_cut_before_it_is_checked(model: ScriptedChat) -> None:
+    model.replies = [reply("Revenue was 281.7 billion USD. " * 100)]
+
+    text = answer(STATE)["answer"]
+
+    assert len(text) == MAX_ANSWER_CHARS and text.endswith("…")
+    assert text.startswith("Revenue was 281.7 billion USD. Revenue")
 
 
 @pytest.mark.parametrize(

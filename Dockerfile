@@ -20,7 +20,13 @@ COPY ingestion ./ingestion
 COPY evals ./evals
 COPY ui ./ui
 
-RUN useradd --create-home --uid 10001 appuser
+# COPY keeps the host's file modes, and some source files are private there (0600): make the
+# code readable by the unprivileged user. /srv/data holds the reply cache (a volume) and the
+# embedding model (mounted read-only).
+RUN useradd --create-home --uid 10001 appuser \
+    && chmod -R a+rX /srv/app /srv/db /srv/ingestion /srv/evals /srv/ui \
+    && mkdir -p /srv/data \
+    && chown appuser:appuser /srv/data
 USER appuser
 
 EXPOSE 8000

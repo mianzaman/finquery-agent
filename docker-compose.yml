@@ -17,7 +17,11 @@ services:
 
   api:
     build: .
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # Migrations run before the server starts; they do nothing when the database is current.
+    command:
+      - sh
+      - -c
+      - python -m db.migrate && exec uvicorn app.main:app --host 0.0.0.0 --port 8000
     env_file:
       - path: .env
         required: false
@@ -25,11 +29,26 @@ services:
       # Inside the compose network the database is reached by service name on its own port.
       DATABASE_URL: postgresql+psycopg://finquery:finquery@db:5432/finquery
       READER_DATABASE_URL: postgresql+psycopg://agent_reader:reader_pw@db:5432/finquery
+      # The embedding model is mounted from the host, so nothing is downloaded at start-up.
+      HF_HUB_OFFLINE: "1"
+    volumes:
+      - appdata:/srv/data
+      # Put there by `uv run python -m ingestion.build_embeddings` during the data load.
+      - ./data/fastembed:/srv/data/fastembed:ro
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://localhost:8000/health", timeout=3)
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   ui:
     build: .
@@ -45,7 +64,9 @@ services:
     ports:
       - "8501:8501"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  appdata:

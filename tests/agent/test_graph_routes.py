@@ -137,10 +137,8 @@ def test_repeated_validation_failures_stop_after_two_repairs() -> None:
     assert visited(state) == [*TO_VALIDATION, *REPAIR, *REPAIR, "answer"]
     assert state["attempts"] == MAX_REPAIRS == 2
     assert "execute" not in visited(state)  # invalid SQL never reaches the database
-    assert state["answer"] == (
-        "I could not answer this: the query still failed after 2 repairs "
-        "(only SELECT queries are allowed)."
-    )
+    assert state["answer"] == "I could not answer this: the query still failed after 2 repairs."
+    assert state["trace"][-1]["note"] == "gave up: only SELECT queries are allowed"
 
 
 def test_repeated_database_errors_stop_after_two_repairs() -> None:
@@ -156,7 +154,8 @@ def test_repeated_database_errors_stop_after_two_repairs() -> None:
         "answer",
     ]
     assert state["attempts"] == 2
-    assert 'column "nope" does not exist' in state["answer"]
+    assert 'column "nope" does not exist' not in state["answer"]
+    assert state["db_error"] == 'column "nope" does not exist'
 
 
 def test_repairs_are_shared_between_validation_and_database_failures() -> None:

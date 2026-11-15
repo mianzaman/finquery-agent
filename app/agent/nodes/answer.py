@@ -2,6 +2,8 @@
 
 One model call, as plain text, when there are rows to report. Two cases need no model and get a
 fixed sentence: the query still failing after the repairs, and a query that returned no rows.
+The failure sentence does not quote the error (it can name tables, columns or the role); the
+error stays in `validation_error` or `db_error` and in the trace.
 
 The model's answer is not trusted: the graph sends it to `check_answer`, and may come back here
 once with the numbers that check could not find in the rows.
@@ -21,6 +23,8 @@ from app.agent.state import AgentState, trace_event
 from app.llm import invoke, message_text, strip_reasoning
 
 MAX_PROMPT_ROWS = 30  # rows shown to the model; the faithfulness check reads all of them
+MAX_ANSWER_CHARS = 1000  # 1 to 3 sentences are far shorter; a longer reply is cut
+GAVE_UP = "I could not answer this: the query still failed after {repairs}."
 NO_ROWS = "No data was found for {subject}: the query returned no rows."
 
 
@@ -60,9 +64,10 @@ def answer(state: AgentState) -> dict:
     started = time.perf_counter()
     error = state.get("validation_error") or state.get("db_error")
     if error:
-        repairs = state.get("attempts", 0)
-        text = f"I could not answer this: the query still failed after {repairs} repairs ({error})."
-        return {"answer": text, "trace": trace_event("answer", started, "gave up")}
+        count = state.get("attempts", 0)
+        text = GAVE_UP.format(repairs="1 repair" if count == 1 else f"{count} repairs")
+        note = f"gave up: {error}"[:160]
+        return {"answer": text, "trace": trace_event("answer", started, note)}
     rows = state.get("rows") or []
     context = prompt_context(state)
     if not rows:
@@ -81,6 +86,8 @@ def answer(state: AgentState) -> dict:
     if rejected:
         prompt += ANSWER_RETRY_NOTE.format(numbers=", ".join(rejected))
     text = " ".join(strip_reasoning(message_text(invoke([HumanMessage(prompt)]))).split())
+    if len(text) > MAX_ANSWER_CHARS:
+        text = text[: MAX_ANSWER_CHARS - 1].rstrip() + "…"
     attempts = state.get("answer_attempts", 0) + 1
     note = f"attempt {attempts}" + (
         f", after unsupported: {', '.join(rejected)}" if rejected else ""
