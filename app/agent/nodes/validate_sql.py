@@ -11,11 +11,16 @@ two built-ins that run a SQL string (`ts_stat`, `ts_rewrite`). Task 09 should re
 function deny-list with an allow-list.
 """
 
+import time
+
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import SqlglotError
 
+from app.agent.state import AgentState, trace_event
+
 DIALECT = "postgres"
+MAX_SQL_LENGTH = 20_000  # characters; far above any real query, and it bounds the parsing work
 
 # Statements and clauses that write, lock or change session state, wherever they appear
 # (a DELETE can hide inside a CTE). `Command` is what sqlglot returns for anything it does not
@@ -104,9 +109,14 @@ def _is_denied(name: str) -> bool:
 
 def check_sql(sql: str) -> str:
     """Return `sql` unchanged when it is one read-only query; otherwise raise `SqlRejected`."""
+    if not isinstance(sql, str):
+        raise SqlRejected("the SQL is not text")
+    if len(sql) > MAX_SQL_LENGTH:
+        raise SqlRejected(f"the SQL is longer than {MAX_SQL_LENGTH} characters")
     try:
         statements = [s for s in sqlglot.parse(sql, read=DIALECT) if s is not None]
-    except SqlglotError as exc:
+    except (SqlglotError, RecursionError) as exc:
+        # Deeply nested input can exhaust the parser's stack; that is a rejection, not a crash.
         raise SqlRejected("the SQL could not be parsed") from exc
     if not statements:
         raise SqlRejected("no SQL statement was given")
@@ -122,3 +132,23 @@ def check_sql(sql: str) -> str:
         if isinstance(node, exp.Func) and _is_denied(_function_name(node)):
             raise SqlRejected(f"the function {_function_name(node)} is not allowed")
     return sql
+
+
+def validate_sql(state: AgentState) -> dict:
+    """Graph node: put the generated SQL through `check_sql` and record why it failed, if it did.
+
+    Unlike the other Task 06 nodes this is not a stub: the check needs no database or model, so
+    the safety gate is in the graph from the start. Task 09 adds the remaining checks.
+    """
+    started = time.perf_counter()
+    sql = state.get("sql")
+    try:
+        if sql is None:
+            raise SqlRejected("no SQL statement was given")
+        check_sql(sql)
+    except SqlRejected as exc:
+        return {
+            "validation_error": str(exc),
+            "trace": trace_event("validate_sql", started, f"rejected: {exc}"),
+        }
+    return {"validation_error": None, "trace": trace_event("validate_sql", started, "valid")}

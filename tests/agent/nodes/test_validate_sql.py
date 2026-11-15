@@ -100,6 +100,22 @@ REJECTED = [
 ]
 
 
+@pytest.mark.parametrize(
+    ("sql", "reason"),
+    [
+        (123, "not text"),
+        (b"SELECT 1", "not text"),
+        (["SELECT 1"], "not text"),
+        ("SELECT " + "(" * 5000 + "1" + ")" * 5000, "could not be parsed"),
+        ("SELECT 1 /* " + "x" * 20_000 + " */", "longer than 20000 characters"),
+    ],
+    ids=["number", "bytes", "list", "deep nesting", "very long"],
+)
+def test_odd_input_is_rejected_instead_of_crashing(sql: object, reason: str) -> None:
+    with pytest.raises(SqlRejected, match=reason):
+        check_sql(sql)  # type: ignore[arg-type]
+
+
 @pytest.mark.parametrize("sql", ALLOWED)
 def test_read_only_queries_pass_unchanged(sql: str) -> None:
     assert check_sql(sql) == sql
