@@ -1,6 +1,7 @@
 """Tests for the evaluation runner. Systems and gold results are fakes: no LLM, no network."""
 
 import json
+from collections.abc import Iterator
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -540,7 +541,24 @@ def test_evaluate_scores_each_question_and_stops_at_a_rate_limit() -> None:
 
 
 @pytest.fixture
-def harness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+def pinned_model(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Settings name openrouter/test-model whatever `.env` says, and are re-read afterwards.
+
+    `--provider` and `--model` write to the environment; setting the variables here first
+    makes monkeypatch put the real values back when the test ends.
+    """
+    from app.config import get_settings
+
+    monkeypatch.setenv("LLM_PROVIDER", "openrouter")
+    monkeypatch.setenv("LLM_MODEL", "test-model")
+    monkeypatch.setenv("LLM_FALLBACK_MODELS", "other-model")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+@pytest.fixture
+def harness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned_model: None) -> dict[str, Any]:
     """`main` wired to a fake system and fake gold results, writing under tmp_path."""
     state: dict[str, Any] = {"asked": [], "limit_at": None, "results": tmp_path / "results"}
 
@@ -599,9 +617,84 @@ def test_main_compare_prints_the_latest_run_of_each_system_without_running_anyth
     output = capsys.readouterr().out
     assert "| Metric | baseline | agent |" in output
     assert "_baseline.json | " in output and "_agent.json |" in output
+    assert "| Model | openrouter/test-model | openrouter/test-model |" in output
     assert "| Questions | 3 (2 passed) | 3 (2 passed) |" in output
+    assert "not comparable" not in output
     assert len(harness["asked"]) == asked  # nothing was asked again
     assert len(saved_runs(harness)) == 2  # and nothing was written
+
+
+def test_main_runs_with_the_provider_and_model_given_and_records_them(
+    harness: dict[str, Any], capsys: pytest.CaptureFixture
+) -> None:
+    # Three baseline questions are 3 requests; Ollama has no quota, so the budget is not applied.
+    args = [*harness["args"], "--provider", "ollama", "--model", "local-model"]
+    assert main([*args, "--max-requests", "1"]) == 0
+
+    (run,) = saved_runs(harness)
+    assert (run["provider"], run["model"], run["fallback_models"]) == ("ollama", "local-model", [])
+    assert "Model: ollama/local-model" in capsys.readouterr().out
+
+
+def test_main_model_alone_keeps_the_provider_but_drops_the_fallbacks(
+    harness: dict[str, Any],
+) -> None:
+    assert main([*harness["args"], "--model", "another-model"]) == 0
+
+    (run,) = saved_runs(harness)
+    assert (run["provider"], run["model"], run["fallback_models"]) == (
+        "openrouter",
+        "another-model",
+        [],
+    )
+
+
+def test_main_provider_needs_a_model(
+    harness: dict[str, Any], capsys: pytest.CaptureFixture
+) -> None:
+    with pytest.raises(SystemExit):
+        main([*harness["args"], "--provider", "ollama"])
+    assert "--provider needs --model" in capsys.readouterr().err
+    assert harness["asked"] == []
+
+
+def test_main_does_not_resume_a_run_made_with_another_model(
+    harness: dict[str, Any], capsys: pytest.CaptureFixture
+) -> None:
+    harness["limit_at"] = "Trend?"
+    assert main(harness["args"]) == 2
+    harness["limit_at"] = None
+    capsys.readouterr()
+
+    assert main([*harness["args"], "--resume", "--provider", "ollama", "--model", "m"]) == 1
+
+    error = capsys.readouterr().err
+    assert "used openrouter/test-model, this run would use ollama/m" in error
+    assert len(saved_runs(harness)) == 1 and harness["asked"] == ["Revenue?"]
+
+
+def test_main_compare_refuses_runs_made_with_different_models(
+    harness: dict[str, Any], capsys: pytest.CaptureFixture
+) -> None:
+    assert main(harness["args"]) == 0
+    agent = ["--system", "agent", *harness["args"][2:], "--provider", "ollama", "--model", "m"]
+    assert main(agent) == 0
+    capsys.readouterr()
+    compare = ["--compare", "--results-dir", str(harness["results"])]
+
+    assert main(compare) == 1
+    error = capsys.readouterr().err
+    assert "different models" in error and "openrouter/test-model" in error and "ollama/m" in error
+
+    assert main([*compare, "--allow-mixed"]) == 0
+    output = capsys.readouterr().out
+    assert "| Model | openrouter/test-model | ollama/m |" in output
+    assert "**The runs used different models; the numbers are not comparable.**" in output
+
+
+def test_model_label_of_a_file_saved_before_the_provider_was() -> None:
+    assert run_eval.model_label({"model": "x"}) == "unknown/x"
+    assert run_eval.model_label({}) == "unknown/unknown"
 
 
 def test_main_needs_a_system_unless_comparing(capsys: pytest.CaptureFixture) -> None:

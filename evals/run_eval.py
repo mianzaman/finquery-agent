@@ -1,8 +1,16 @@
 """Runs the evaluation set against the baseline or the agent.
 
 Run with `uv run python -m evals.run_eval --system baseline [--ids q001,q002] [--limit N]
-[--resume] [--max-requests 40] [--questions PATH]`, or with `--compare` to print the latest
-saved baseline and agent runs side by side (no model call).
+[--resume] [--max-requests 40] [--questions PATH] [--provider ollama --model NAME]`, or with
+`--compare [--allow-mixed]` to print the latest saved baseline and agent runs side by side (no
+model call).
+
+Which model
+-----------
+`.env` names the model. `--provider` and `--model` replace it for one run (and drop `.env`'s
+fallback models). Every results file records the provider and the model; `--resume` refuses to
+continue a run made with another model, and `--compare` refuses runs made with different models
+unless `--allow-mixed` is passed.
 
 How a question is scored
 ------------------------
@@ -19,15 +27,16 @@ How a question is scored
 Budget
 ------
 Free models allow few requests a day, so the run first prints how many it expects to make and
-stops if that is above `--max-requests`. A rate limit ends the run; what was finished is saved
-and `--resume` continues from it. Results files are never changed: a resumed run writes a new
-file that carries the earlier answers over.
+stops if that is above `--max-requests` (not for Ollama, which has no quota). A rate limit ends
+the run; what was finished is saved and `--resume` continues from it. Results files are never
+changed: a resumed run writes a new file that carries the earlier answers over.
 """
 
 import argparse
 import json
 import logging
 import math
+import os
 import subprocess
 import sys
 from collections import Counter
@@ -36,9 +45,9 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
-from app.config import LOG_FORMAT
+from app.config import LOG_FORMAT, Settings
 
 ROOT = Path(__file__).resolve().parent.parent
 QUESTIONS_PATH = Path(__file__).parent / "questions.jsonl"
@@ -52,6 +61,7 @@ MAX_COLUMN_MAPPINGS = 5000
 SAMPLE_ROWS = 10  # rows of each result kept in the results file
 # Model calls a system makes for one question (a JSON retry can add one more).
 REQUESTS_PER_QUESTION = {"baseline": 1, "agent": 3}
+PROVIDERS = get_args(Settings.model_fields["llm_provider"].annotation)
 
 logger = logging.getLogger(__name__)
 
@@ -417,7 +427,7 @@ def markdown_comparison(runs: list[dict[str, Any]]) -> str:
         f"| Metric | {header} |",
         "| --- |" + " --- |" * len(runs),
         f"| Results file | {' | '.join(run.get('file', 'unknown') for run in runs)} |",
-        f"| Model | {' | '.join(run['model'] or 'no model' for run in runs)} |",
+        f"| Model | {' | '.join(model_label(run) for run in runs)} |",
     ]
     for index, (metric, _) in enumerate(columns[0]):
         lines.append(f"| {metric} | {' | '.join(column[index][1] for column in columns)} |")
@@ -465,15 +475,39 @@ def latest_results(results_dir: Path, system: str) -> Path | None:
     return files[-1] if files else None
 
 
-def compare_latest(results_dir: Path, systems: Sequence[str] = ("baseline", "agent")) -> str:
-    """The comparison table of each system's newest results file."""
+def model_label(run: dict[str, Any]) -> str:
+    """`provider/model` of a saved run; files from before the provider was saved say unknown."""
+    return f"{run.get('provider') or 'unknown'}/{run.get('model') or 'unknown'}"
+
+
+def compare_latest(
+    results_dir: Path,
+    systems: Sequence[str] = ("baseline", "agent"),
+    allow_mixed: bool = False,
+) -> str:
+    """The comparison table of each system's newest results file.
+
+    Runs made with different models are not comparable, so they are refused unless
+    `allow_mixed`; then the table says so.
+    """
     runs: list[dict[str, Any]] = []
     for system in systems:
         path = latest_results(results_dir, system)
         if path is None:
             raise EvalError(f"--compare: no {system} results in {results_dir}")
         runs.append(json.loads(path.read_text(encoding="utf-8")) | {"file": path.name})
-    return markdown_comparison(runs)
+    labels = [f"{run['file']} used {model_label(run)}" for run in runs]
+    mixed = len({model_label(run) for run in runs}) > 1
+    if mixed and not allow_mixed:
+        raise EvalError(
+            "--compare: the latest runs used different models ("
+            + "; ".join(labels)
+            + "). Run both systems with the same model, or pass --allow-mixed."
+        )
+    table = markdown_comparison(runs)
+    if mixed:
+        table += "\n\n**The runs used different models; the numbers are not comparable.**"
+    return table
 
 
 def results_path(results_dir: Path, system: str, now: datetime) -> Path:
@@ -590,12 +624,43 @@ def evaluate(
     return entries, None
 
 
+def use_model(provider: str | None, model: str | None) -> None:
+    """Point this process at another provider or model than `.env` names, for this run only.
+
+    Settings read the environment before `.env`, so the override is set there and the cached
+    settings are dropped. It must run before the chat model is first built (`main` calls it
+    before anything asks for one). `.env`'s fallback models belong to `.env`'s model, so they
+    are dropped too: the results file then names the only model that answered.
+    """
+    from app.config import get_settings
+
+    if provider is not None:
+        os.environ["LLM_PROVIDER"] = provider
+    if model is not None:
+        os.environ["LLM_MODEL"] = model
+    os.environ["LLM_FALLBACK_MODELS"] = ""
+    get_settings.cache_clear()
+
+
 def main(argv: list[str] | None = None) -> int:
     """Command-line entry point. Exit code 0: finished; 1: could not run; 2: stopped early."""
     parser = argparse.ArgumentParser(description="Score a system against the gold SQL.")
     parser.add_argument("--system", choices=("baseline", "agent"))
     parser.add_argument(
         "--compare", action="store_true", help="print the latest baseline and agent runs"
+    )
+    parser.add_argument(
+        "--allow-mixed",
+        action="store_true",
+        help="with --compare: show runs made with different models side by side",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=PROVIDERS,
+        help="use this provider for this run instead of LLM_PROVIDER (needs --model)",
+    )
+    parser.add_argument(
+        "--model", help="use this model for this run instead of LLM_MODEL (drops the fallbacks)"
     )
     parser.add_argument("--ids", help="comma-separated question ids to run")
     parser.add_argument("--limit", type=int, help="run at most this many questions")
@@ -606,13 +671,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.compare:
         try:
-            print(compare_latest(args.results_dir))
+            print(compare_latest(args.results_dir, allow_mixed=args.allow_mixed))
         except EvalError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         return 0
     if args.system is None:
         parser.error("--system is required (or use --compare)")
+    if args.provider is not None and not args.model:
+        parser.error("--provider needs --model: the model in .env belongs to its own provider")
+    if args.provider is not None or args.model is not None:
+        use_model(args.provider, args.model)
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
@@ -620,6 +689,8 @@ def main(argv: list[str] | None = None) -> int:
     from app.db.session import QueryError
     from app.llm import LLMError
 
+    settings = get_settings()
+    current = {"provider": settings.llm_provider, "model": settings.llm_model}
     try:
         questions = load_questions(args.questions)
         carried: list[dict[str, Any]] = []
@@ -627,7 +698,14 @@ def main(argv: list[str] | None = None) -> int:
         if args.resume and previous is None:
             raise EvalError(f"--resume: no earlier {args.system} results in {args.results_dir}")
         if previous is not None:
-            carried = json.loads(previous.read_text(encoding="utf-8"))["questions"]
+            earlier = json.loads(previous.read_text(encoding="utf-8"))
+            if model_label(earlier) != model_label(current):
+                raise EvalError(
+                    f"--resume: {previous.name} used {model_label(earlier)}, this run would use "
+                    f"{model_label(current)}. Pass the same --provider and --model, or start a "
+                    "new run without --resume."
+                )
+            carried = earlier["questions"]
             known = {q.id for q in questions}
             carried = [e | {"carried_from": previous.name} for e in carried if e["id"] in known]
         ids = [i.strip() for i in args.ids.split(",") if i.strip()] if args.ids else None
@@ -636,11 +714,13 @@ def main(argv: list[str] | None = None) -> int:
             raise EvalError("nothing to run: every selected question is already answered")
 
         estimate = len(todo) * REQUESTS_PER_QUESTION[args.system]
+        print(f"Model: {model_label(current)}")
         print(
             f"{len(todo)} questions, about {estimate} model requests "
             f"(up to {estimate * 2} if replies need a retry; cached replies cost none)."
         )
-        if estimate > args.max_requests:
+        # The budget protects a daily request quota; a local model has none.
+        if current["provider"] != "ollama" and estimate > args.max_requests:
             raise EvalError(
                 f"{estimate} requests is above --max-requests {args.max_requests}. "
                 "Use --limit or --ids to run a batch, or raise --max-requests."
@@ -656,7 +736,6 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     finished = datetime.now().astimezone()
-    settings = get_settings()
     everything = carried + entries
     run = {
         "system": args.system,

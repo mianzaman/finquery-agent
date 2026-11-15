@@ -49,6 +49,11 @@ EMBEDDING_DIMENSIONS = 384  # the width of the vector columns; both providers mu
 REQUEST_TIMEOUT_SECONDS = 60
 # A local model on a CPU can take a minute to answer, and longer the first time it is loaded.
 OLLAMA_TIMEOUT_SECONDS = 300
+# The timeout above does not end a reply that keeps streaming, and Ollama's own default is no
+# limit: a small model held to a JSON schema can write until its context is full, which took
+# over 10 minutes on a CPU (2026-11-16). No reply here (guardrail JSON, one SQL query, a few
+# sentences) needs more than a few hundred tokens, so a longer one is cut and fails validation.
+OLLAMA_MAX_REPLY_TOKENS = 1024
 # Providers whose models reliably support tool calling, so structured output can be native.
 NATIVE_STRUCTURED_PROVIDERS = frozenset({"openai", "gemini"})
 
@@ -205,6 +210,7 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
             model=settings.llm_model,
             base_url=settings.ollama_base_url,
             temperature=0,
+            num_predict=OLLAMA_MAX_REPLY_TOKENS,
             client_kwargs={"timeout": OLLAMA_TIMEOUT_SECONDS},
             # No rate limiter: the server is local. The cache still saves repeated waits.
             cache=_sqlite_cache(CACHE_PATH) if settings.llm_cache else False,

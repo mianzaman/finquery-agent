@@ -452,11 +452,14 @@ def test_ollama_model_is_local_uncapped_and_patient(monkeypatch: pytest.MonkeyPa
         "model": "local-model:3b",
         "base_url": "http://box:11434",
         "temperature": 0,
+        "num_predict": llm.OLLAMA_MAX_REPLY_TOKENS,
         "client_kwargs": {"timeout": llm.OLLAMA_TIMEOUT_SECONDS},
         "cache": False,
     }
     assert "rate_limiter" not in model.kwargs  # a local server has no request limit
     assert llm.OLLAMA_TIMEOUT_SECONDS > llm.REQUEST_TIMEOUT_SECONDS
+    # A reply that never ends is cut (the timeout does not end a stream), but SQL fits.
+    assert 512 <= llm.OLLAMA_MAX_REPLY_TOKENS <= 2048
 
 
 def test_ollama_keeps_the_reply_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -483,6 +486,7 @@ def test_the_real_ollama_class_is_built_without_a_request() -> None:
 
     assert type(model).__name__ == "ChatOllama"
     assert (model.model, model.base_url, model.temperature) == ("m", "http://127.0.0.1:9", 0)  # type: ignore[attr-defined]
+    assert model.num_predict == llm.OLLAMA_MAX_REPLY_TOKENS  # type: ignore[attr-defined]
     assert model.rate_limiter is None
 
 
