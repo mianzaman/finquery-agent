@@ -4,6 +4,10 @@ CLAUDE.md
 PLAN.md
 .env
 .claude/
+check_gold.sh
+gold_results.txt
+questions.draft.jsonl
+REVIEW.md
 
 # Python
 .venv/
