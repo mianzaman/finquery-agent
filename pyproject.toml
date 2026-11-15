@@ -1,0 +1,47 @@
+[project]
+name = "finquery-agent"
+version = "0.1.0"
+description = "AI financial analyst: plain-English questions answered with validated SQL over SEC EDGAR and yfinance data."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.162.7",
+    "fastembed>=0.9.1",
+    "httpx>=0.28.1",
+    "langchain-community>=0.4.2",
+    "langchain-core>=1.8.0",
+    "langchain-google-genai>=4.5.0",
+    "langchain-openai>=1.8.0",
+    "langgraph>=1.2.22",
+    "pandas>=3.1.1",
+    "pgvector>=0.5.1",
+    "psycopg[binary]>=3.3.9",
+    "pydantic-settings>=2.16.3",
+    "pyyaml>=6.0.3",
+    "sqlalchemy>=2.1.8",
+    "sqlglot>=30.31.0",
+    "streamlit>=1.67.0",
+    "uvicorn[standard]>=0.54.0",
+    "yfinance>=1.8.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.5",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

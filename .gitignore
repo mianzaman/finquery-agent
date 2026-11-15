@@ -1,5 +1,19 @@
-docs/
+docs/tasks/
 AGENTS.md
 CLAUDE.md
 PLAN.md
 .env
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local data and caches
+data/
+*.sqlite
+*.sqlite3
