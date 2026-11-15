@@ -37,7 +37,7 @@ def test_schema_lists_what_the_reader_can_query() -> None:
 
 
 def test_a_question_becomes_sql_and_rows(model: ScriptedChat) -> None:
-    sql = "SELECT n, n * 2 AS doubled FROM generate_series(1, 3) AS n ORDER BY n"
+    sql = "SELECT n, n * 2 AS doubled FROM unnest(ARRAY[1, 2, 3]) AS n ORDER BY n"
     model.replies = [reply(f'{{"sql": "{sql}", "refusal": null}}', 900, 40)]
 
     result = answer("Count to three and double it")

@@ -49,6 +49,65 @@ Also return:
 
 Question: {question}"""
 
+# --- SQL generation and repair (app/agent/nodes/generate_sql.py, repair_sql.py) -----------------
+
+SQL_RULES = """\
+Rules:
+- Write exactly one PostgreSQL SELECT statement (CTEs are fine). No comments, no semicolon.
+- Use only the tables and columns listed above. Other tables and system functions are blocked.
+- Filter with the tickers given above (ticker = 'AAPL'); never search for a company by name.
+- Use the periods given above. For a fiscal period filter on fiscal_year and fiscal_quarter;
+  for a calendar period filter on dates (period_end, trade_date, ex_date).
+- "Latest" or "most recent" means the newest row in the data (ORDER BY period_end DESC, or
+  trade_date DESC), never CURRENT_DATE or NOW().
+- Income and cash-flow figures are per quarter: a fiscal-year total is the SUM of its quarters.
+  Balance-sheet figures are point-in-time: the fiscal-year-end value is the fiscal_quarter = 4 row.
+- Return only the columns the question asks for, plus ticker when more than one company can
+  appear. When the question says "as a percentage", multiply the ratio by 100."""
+
+GENERATE_SQL_PROMPT = """\
+You write SQL for a database of US public companies' financials, share prices and dividends.
+
+Tables you can use:
+{schema_context}
+
+Similar questions with correct queries:
+{examples}
+
+Companies in this question: {companies}
+Periods in this question:
+{periods}
+The data runs from {first_date} to {last_date}.
+
+{rules}
+
+Return "sql" (the query) and "tables_used" (the tables it reads).
+
+Question: {question}"""
+
+REPAIR_SQL_PROMPT = """\
+A SQL query written to answer a question failed. Write a corrected query.
+
+Question: {question}
+
+The query that failed:
+{sql}
+
+The error:
+{error}
+
+Tables you can use:
+{schema_context}
+
+Companies in this question: {companies}
+Periods in this question:
+{periods}
+
+{rules}
+
+Fix the cause of the error; do not just rephrase the query. Return "sql" (the corrected query)
+and "tables_used" (the tables it reads)."""
+
 # --- Naive baseline (app/baseline.py) -----------------------------------------------------------
 
 BASELINE_PROMPT = """\

@@ -69,6 +69,11 @@ def test_an_unreachable_database_is_a_query_error_without_connection_details() -
     assert "secret_pw" not in str(excinfo.value) and "127.0.0.1" not in str(excinfo.value)
 
 
+def test_text_the_driver_cannot_encode_is_a_query_error() -> None:
+    with pytest.raises(QueryError, match="cannot be sent"):
+        run_select("SELECT 'é\ud800'")
+
+
 def test_the_error_message_is_one_line_without_connection_details() -> None:
     with pytest.raises(QueryError) as excinfo:
         run_select("SELECT nope FROM companies")

@@ -75,6 +75,9 @@ def run_select(
         except psycopg.Error as exc:
             message = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
             raise QueryError(message) from exc
+        except UnicodeError as exc:
+            # Text the driver cannot encode (a lone surrogate) never reaches the server.
+            raise QueryError("the query contains characters that cannot be sent") from exc
         finally:
             raw.rollback()
     return columns, rows[:max_rows], len(rows) > max_rows

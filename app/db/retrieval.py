@@ -125,3 +125,23 @@ def search_examples(question: str, k: int = 3) -> list[dict[str, str]]:
     """
     _, rows, _ = run_select(sql, params={"vector": embed_question(question), "k": k})
     return [{"question": question_text, "sql": sql_text} for question_text, sql_text in rows]
+
+
+def table_docs(tables: list[str]) -> dict[str, dict[str | None, str]]:
+    """Every stored description of the given tables: `{table: {column or None: description}}`.
+
+    `search_schema` says which tables matter; this gives all of their columns, so the SQL
+    generator never lacks a column that the search happened not to match.
+    """
+    if not tables:
+        return {}
+    sql = f"""
+        SELECT table_name, column_name, description
+        FROM {schema_name()}.schema_docs
+        WHERE table_name = ANY(%(tables)s)
+    """
+    _, rows, _ = run_select(sql, params={"tables": tables})
+    docs: dict[str, dict[str | None, str]] = {table: {} for table in tables}
+    for table, column, description in rows:
+        docs[table][column] = description
+    return docs

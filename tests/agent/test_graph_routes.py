@@ -57,12 +57,27 @@ RESOLVED = {"tickers": ["AAPL"], "periods": []}
 RETRIEVED = {"schema_context": "companies (\n  ticker text,\n)", "examples": []}
 
 
+def fake_repair(state: AgentState) -> dict[str, Any]:
+    """Like the real repair node, without a model: same SQL back, one more attempt."""
+    return {
+        "sql": state.get("sql"),
+        "validation_error": None,
+        "db_error": None,
+        "attempts": state.get("attempts", 0) + 1,
+        "trace": trace_event("repair_sql", 0.0, "fake"),
+    }
+
+
 def run(**overrides: Any) -> AgentState:
-    """Run the graph with the model-backed and database-backed nodes replaced by fakes."""
+    """Run the graph with every model-backed and database-backed node replaced by a fake."""
     front = {
         "guardrail": fake("guardrail", ALLOWED),
         "entities": fake("entities", RESOLVED),
         "retrieve_schema": fake("retrieve_schema", RETRIEVED),
+        "generate_sql": fake("generate_sql", {"sql": "SELECT 1"}),
+        "validate_sql": fake("validate_sql", VALID),
+        "execute": fake("execute", DB_OK),
+        "repair_sql": fake_repair,
     }
     return build_graph(front | overrides).invoke(initial_state("What was Apple's revenue?"))
 
@@ -167,7 +182,10 @@ def test_run_agent_uses_the_real_nodes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_the_real_validation_node_stops_unsafe_sql_from_being_executed() -> None:
-    state = run(generate_sql=fake("generate_sql", {"sql": "DELETE FROM companies"}))
+    state = run(
+        generate_sql=fake("generate_sql", {"sql": "DELETE FROM companies"}),
+        validate_sql=NODES["validate_sql"],
+    )
 
     assert "execute" not in visited(state)
     assert state["validation_error"] == "only SELECT queries are allowed, not DELETE"
@@ -240,3 +258,43 @@ def test_the_saved_diagram_matches_the_graph() -> None:
     assert GRAPH_FILE.read_text() == drawn, (
         "docs/graph.mmd is stale; regenerate it from build_graph().get_graph().draw_mermaid()"
     )
+
+
+def test_broken_sql_from_the_model_is_repaired_in_one_attempt(
+    db: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real SQL nodes with a scripted model: a bad column, then a corrected query."""
+    from pydantic import BaseModel
+
+    from app import llm
+    from app.agent.nodes import generate_sql as generate_module
+    from app.agent.nodes import repair_sql as repair_module
+    from tests.fakes import ScriptedChat, reply
+
+    broken = "SELECT revenu FROM income_statements WHERE ticker = 'AAPL'"
+    fixed = "SELECT ticker, name FROM companies WHERE ticker = 'AAPL'"
+    model = ScriptedChat(
+        replies=[
+            reply(f'{{"sql": "{broken}", "tables_used": ["income_statements"]}}'),
+            reply(f'{{"sql": "{fixed}", "tables_used": ["companies"]}}'),
+        ]
+    )
+
+    def structured(schema: type[BaseModel], messages: list) -> BaseModel:
+        return llm.structured(schema, messages, model=model, native=False)
+
+    monkeypatch.setattr(generate_module, "structured", structured)
+    monkeypatch.setattr(repair_module, "structured", structured)
+    real = {name: NODES[name] for name in ("generate_sql", "validate_sql", "execute", "repair_sql")}
+
+    state = run(**real)
+
+    assert visited(state) == [*TO_VALIDATION, *REPAIR, "execute", "answer"]
+    assert state["attempts"] == 1
+    assert state["sql"] == f"{fixed} LIMIT 500"  # what ran is the validated, row-limited text
+    assert (state["columns"], state["rows"]) == (["ticker", "name"], [("AAPL", "Apple")])
+    assert (state["validation_error"], state["db_error"]) == (None, None)
+    # The repair prompt showed the model its query and the database's exact complaint.
+    repair_prompt = model.seen[1][0].content
+    assert broken in repair_prompt and 'column "revenu" does not exist' in repair_prompt
+    assert len(model.seen) == 2
