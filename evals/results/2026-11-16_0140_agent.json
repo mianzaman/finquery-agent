@@ -1,0 +1,144 @@
+{
+  "system": "agent",
+  "provider": "ollama",
+  "model": "qwen2.5-coder:3b",
+  "fallback_models": [],
+  "git_commit": "3768e07",
+  "questions_file": "/home/zaman/data/python/finquery-agent/evals/questions.jsonl",
+  "started_at": "2026-11-16T01:39:23+05:00",
+  "finished_at": "2026-11-16T01:40:31+05:00",
+  "resumed_from": null,
+  "complete": true,
+  "stopped_reason": null,
+  "summary": {
+    "questions": 3,
+    "passed": 3,
+    "overall_accuracy": 1.0,
+    "execution_accuracy": 1.0,
+    "valid_sql_rate": 1.0,
+    "refusal_accuracy": null,
+    "answers_checked": 3,
+    "faithfulness_rate": 0.3333333333333333,
+    "repairs": 0,
+    "questions_repaired": 0,
+    "repair_success": null,
+    "by_category": {
+      "lookup": {
+        "questions": 3,
+        "passed": 3,
+        "accuracy": 1.0
+      }
+    },
+    "latency_ms_p50": 4406.0,
+    "latency_ms_p95": 62339.0,
+    "average_tokens": 1191.3333333333333,
+    "requests": 6,
+    "cached_replies": 5,
+    "cost_usd": 0.0,
+    "gold_errors": []
+  },
+  "questions": [
+    {
+      "id": "q001",
+      "category": "lookup",
+      "question": "What was Microsoft's total revenue in fiscal 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT SUM(revenue) AS total_revenue FROM income_statements WHERE ticker = 'MSFT' AND fiscal_year = 2025 LIMIT 500",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "281724000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "281724000000.0000"
+        ]
+      ],
+      "answer": "Microsoft's total revenue in fiscal 2025 was $281.7 billion.",
+      "faithfulness": true,
+      "attempts": 0,
+      "answer_attempts": 1,
+      "latency_ms": 640,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 3,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q002",
+      "category": "lookup",
+      "question": "What was Apple's net income in its most recent quarter?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT net_income FROM income_statements WHERE ticker = 'AAPL' ORDER BY period_end DESC LIMIT 1",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "30711000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "30711000000.0000"
+        ]
+      ],
+      "answer": "The query returned 1 row; the figures are in the table.",
+      "faithfulness": false,
+      "attempts": 0,
+      "answer_attempts": 2,
+      "latency_ms": 4406,
+      "tokens": 653,
+      "requests": 2,
+      "cached": 2,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q003",
+      "category": "lookup",
+      "question": "What were JPMorgan Chase's total assets at the end of fiscal 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT total_assets FROM balance_sheets WHERE ticker = 'JPM' AND fiscal_year = 2025 AND fiscal_quarter = 4 LIMIT 500",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "4424900000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "4424900000000.0000"
+        ]
+      ],
+      "answer": "The query returned 1 row; the figures are in the table.",
+      "faithfulness": false,
+      "attempts": 0,
+      "answer_attempts": 2,
+      "latency_ms": 62339,
+      "tokens": 2921,
+      "requests": 4,
+      "cached": 0,
+      "cost_usd": 0.0
+    }
+  ]
+}

@@ -53,4 +53,4 @@ uv run python -m evals.run_eval --system agent --model <another model of the .en
 Every results file records the provider and the model. `--resume` only continues a run made
 with the same model, and `--compare` refuses runs made with different models unless you pass
 `--allow-mixed`. Results from a small local model are for checking the pipeline; do not compare
-them with a hosted model's.
+them with a hosted model's. Ollama runs are saved in `evals/results/local/`.

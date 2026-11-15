@@ -10,7 +10,8 @@ Which model
 `.env` names the model. `--provider` and `--model` replace it for one run (and drop `.env`'s
 fallback models). Every results file records the provider and the model; `--resume` refuses to
 continue a run made with another model, and `--compare` refuses runs made with different models
-unless `--allow-mixed` is passed.
+unless `--allow-mixed` is passed. Ollama runs are saved in `evals/results/local/`: they check
+the pipeline and are not results.
 
 How a question is scored
 ------------------------
@@ -52,6 +53,8 @@ from app.config import LOG_FORMAT, Settings
 ROOT = Path(__file__).resolve().parent.parent
 QUESTIONS_PATH = Path(__file__).parent / "questions.jsonl"
 RESULTS_DIR = Path(__file__).parent / "results"
+# Runs on a local model check the pipeline; kept apart so they are never taken for results.
+LOCAL_RESULTS_DIR = RESULTS_DIR / "local"
 
 CATEGORIES = ("lookup", "trend", "comparison", "ranking", "multi_table", "out_of_scope")
 OUT_OF_SCOPE = "out_of_scope"
@@ -469,6 +472,11 @@ def markdown_summary(run: dict[str, Any]) -> str:
 # --- Results files ----------------------------------------------------------------------------
 
 
+def default_results_dir(provider: str) -> Path:
+    """Where a run is saved when `--results-dir` is not given: local runs in their own folder."""
+    return LOCAL_RESULTS_DIR if provider == "ollama" else RESULTS_DIR
+
+
 def latest_results(results_dir: Path, system: str) -> Path | None:
     """The newest results file of a system (the names sort by time)."""
     files = sorted(results_dir.glob(f"*_{system}.json"))
@@ -667,36 +675,43 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--resume", action="store_true", help="continue the latest run")
     parser.add_argument("--max-requests", type=int, default=40, help="refuse a larger run")
     parser.add_argument("--questions", type=Path, default=QUESTIONS_PATH)
-    parser.add_argument("--results-dir", type=Path, default=RESULTS_DIR)
+    parser.add_argument(
+        "--results-dir",
+        type=Path,
+        help="default: evals/results/, or evals/results/local/ for Ollama",
+    )
     args = parser.parse_args(argv)
+    if args.provider is not None and not args.model:
+        parser.error("--provider needs --model: the model in .env belongs to its own provider")
+    if args.provider is not None or args.model is not None:
+        use_model(args.provider, args.model)
+
+    from app.config import get_settings
+
+    settings = get_settings()
+    results_dir: Path = args.results_dir or default_results_dir(settings.llm_provider)
     if args.compare:
         try:
-            print(compare_latest(args.results_dir, allow_mixed=args.allow_mixed))
+            print(compare_latest(results_dir, allow_mixed=args.allow_mixed))
         except EvalError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         return 0
     if args.system is None:
         parser.error("--system is required (or use --compare)")
-    if args.provider is not None and not args.model:
-        parser.error("--provider needs --model: the model in .env belongs to its own provider")
-    if args.provider is not None or args.model is not None:
-        use_model(args.provider, args.model)
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    from app.config import get_settings
     from app.db.session import QueryError
     from app.llm import LLMError
 
-    settings = get_settings()
     current = {"provider": settings.llm_provider, "model": settings.llm_model}
     try:
         questions = load_questions(args.questions)
         carried: list[dict[str, Any]] = []
-        previous = latest_results(args.results_dir, args.system) if args.resume else None
+        previous = latest_results(results_dir, args.system) if args.resume else None
         if args.resume and previous is None:
-            raise EvalError(f"--resume: no earlier {args.system} results in {args.results_dir}")
+            raise EvalError(f"--resume: no earlier {args.system} results in {results_dir}")
         if previous is not None:
             earlier = json.loads(previous.read_text(encoding="utf-8"))
             if model_label(earlier) != model_label(current):
@@ -753,7 +768,7 @@ def main(argv: list[str] | None = None) -> int:
         "questions": everything,
     }
     if everything:
-        path = results_path(args.results_dir, args.system, finished)
+        path = results_path(results_dir, args.system, finished)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(run, indent=2) + "\n", encoding="utf-8")
         print(markdown_summary(run))

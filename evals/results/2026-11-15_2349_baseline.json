@@ -1,0 +1,219 @@
+{
+  "system": "baseline",
+  "provider": "ollama",
+  "model": "qwen2.5-coder:3b",
+  "fallback_models": [
+    "google/gemma-4-26b-a4b-it:free"
+  ],
+  "git_commit": "3768e07",
+  "questions_file": "/home/zaman/data/python/finquery-agent/evals/questions.jsonl",
+  "started_at": "2026-11-15T23:49:11+05:00",
+  "finished_at": "2026-11-15T23:49:11+05:00",
+  "resumed_from": null,
+  "complete": true,
+  "stopped_reason": null,
+  "summary": {
+    "questions": 5,
+    "passed": 3,
+    "overall_accuracy": 0.6,
+    "execution_accuracy": 0.6,
+    "valid_sql_rate": 0.8,
+    "refusal_accuracy": null,
+    "answers_checked": 0,
+    "faithfulness_rate": null,
+    "repairs": 0,
+    "questions_repaired": 0,
+    "repair_success": null,
+    "by_category": {
+      "lookup": {
+        "questions": 5,
+        "passed": 3,
+        "accuracy": 0.6
+      }
+    },
+    "latency_ms_p50": 12.0,
+    "latency_ms_p95": 262.0,
+    "average_tokens": 0.0,
+    "requests": 0,
+    "cached_replies": 5,
+    "cost_usd": 0.0,
+    "gold_errors": []
+  },
+  "questions": [
+    {
+      "id": "q001",
+      "category": "lookup",
+      "question": "What was Microsoft's total revenue in fiscal 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT SUM(revenue) AS total_revenue FROM income_statements WHERE ticker = 'MSFT' AND fiscal_year = 2025;",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "281724000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "281724000000.0000"
+        ]
+      ],
+      "answer": null,
+      "faithfulness": null,
+      "attempts": 0,
+      "answer_attempts": 0,
+      "latency_ms": 262,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q002",
+      "category": "lookup",
+      "question": "What was Apple's net income in its most recent quarter?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT net_income FROM income_statements WHERE ticker = 'AAPL' ORDER BY fiscal_year DESC, fiscal_quarter DESC LIMIT 1;",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "30711000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "30711000000.0000"
+        ]
+      ],
+      "answer": null,
+      "faithfulness": null,
+      "attempts": 0,
+      "answer_attempts": 0,
+      "latency_ms": 10,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q003",
+      "category": "lookup",
+      "question": "What were JPMorgan Chase's total assets at the end of fiscal 2025?",
+      "passed": false,
+      "reason": "row count differs: gold 1, system 4",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT total_assets FROM balance_sheets WHERE ticker = 'JPM' AND fiscal_year = 2025",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 4,
+      "gold_sample": [
+        [
+          "4424900000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "4357856000000.0000"
+        ],
+        [
+          "4552482000000.0000"
+        ],
+        [
+          "4560205000000.0000"
+        ],
+        [
+          "4424900000000.0000"
+        ]
+      ],
+      "answer": null,
+      "faithfulness": null,
+      "attempts": 0,
+      "answer_attempts": 0,
+      "latency_ms": 12,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q004",
+      "category": "lookup",
+      "question": "What was Tesla's closing share price on 30 June 2026?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT close FROM daily_prices WHERE ticker = 'TSLA' AND trade_date = '2026-06-30'",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "420.6000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "420.6000"
+        ]
+      ],
+      "answer": null,
+      "faithfulness": null,
+      "attempts": 0,
+      "answer_attempts": 0,
+      "latency_ms": 12,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q005",
+      "category": "lookup",
+      "question": "How much cash did Alphabet hold at the end of its latest reported quarter?",
+      "passed": false,
+      "reason": "database: column \"total_cash\" does not exist",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": false,
+      "gold_error": null,
+      "system_sql": "SELECT total_cash FROM balance_sheets WHERE ticker = 'GOOGL' ORDER BY fiscal_year DESC, fiscal_quarter DESC LIMIT 1",
+      "error": "database: column \"total_cash\" does not exist",
+      "gold_row_count": 1,
+      "system_row_count": 0,
+      "gold_sample": [
+        [
+          "56334000000.0000"
+        ]
+      ],
+      "system_sample": [],
+      "answer": null,
+      "faithfulness": null,
+      "attempts": 0,
+      "answer_attempts": 0,
+      "latency_ms": 10,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    }
+  ]
+}

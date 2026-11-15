@@ -692,6 +692,31 @@ def test_main_compare_refuses_runs_made_with_different_models(
     assert "**The runs used different models; the numbers are not comparable.**" in output
 
 
+def test_local_runs_are_saved_apart_unless_a_folder_is_given(
+    harness: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    official, local = tmp_path / "official", tmp_path / "official" / "local"
+    monkeypatch.setattr(run_eval, "RESULTS_DIR", official)
+    monkeypatch.setattr(run_eval, "LOCAL_RESULTS_DIR", local)
+    no_folder = ["--system", "baseline", "--questions", str(harness["questions"])]
+
+    assert main(no_folder) == 0  # openrouter, from the pinned settings
+    assert main([*no_folder, "--provider", "ollama", "--model", "m"]) == 0
+
+    assert len(list(official.glob("*_baseline.json"))) == 1
+    (saved,) = local.glob("*_baseline.json")
+    assert json.loads(saved.read_text())["provider"] == "ollama"
+    # --resume and --compare look in the same folder as the run would be saved in.
+    capsys.readouterr()
+    assert main([*no_folder, "--provider", "ollama", "--model", "m", "--resume"]) == 1
+    assert "already answered" in capsys.readouterr().err  # it found the local run
+    assert run_eval.default_results_dir("ollama") == local
+    assert run_eval.default_results_dir("openrouter") == official
+
+
 def test_model_label_of_a_file_saved_before_the_provider_was() -> None:
     assert run_eval.model_label({"model": "x"}) == "unknown/x"
     assert run_eval.model_label({}) == "unknown/unknown"
