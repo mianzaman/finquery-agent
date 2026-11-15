@@ -17,7 +17,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.config import get_settings  # noqa: E402  (must follow the path line above)
 
-TIMEOUT_SECONDS = 120  # free models are slow, and a question can need several calls
 EXAMPLES = (
     "What was Apple's revenue last quarter?",
     "How has Microsoft's net income changed over its last 6 quarters?",
@@ -31,11 +30,15 @@ TIMED_OUT = "The API took too long to answer. Try again in a moment."
 UNREADABLE = "The API sent a reply this page could not read."
 
 
-def ask_api(question: str, api_url: str) -> dict[str, Any]:
-    """Send the question to `POST /ask`. Returns the response body, or `{"error": message}`."""
+def ask_api(question: str, api_url: str, timeout: float) -> dict[str, Any]:
+    """Send the question to `POST /ask`. Returns the response body, or `{"error": message}`.
+
+    `timeout` is `UI_TIMEOUT_SECONDS`: a question can need several model calls, and a local
+    model on a CPU takes minutes where a hosted one takes seconds.
+    """
     try:
         response = httpx.post(
-            f"{api_url.rstrip('/')}/ask", json={"question": question}, timeout=TIMEOUT_SECONDS
+            f"{api_url.rstrip('/')}/ask", json={"question": question}, timeout=timeout
         )
     except httpx.TimeoutException:
         return {"error": TIMED_OUT}
@@ -115,7 +118,8 @@ def main() -> None:
             st.markdown(question)
         with st.chat_message("assistant"):
             with st.spinner("Writing and running the query…"):
-                result = ask_api(question, get_settings().api_url)
+                settings = get_settings()
+                result = ask_api(question, settings.api_url, settings.ui_timeout_seconds)
             render(result)
         history.append({"question": question, "result": result})
 

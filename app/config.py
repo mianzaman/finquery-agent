@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     api_max_concurrent: int = 4  # questions being answered at once, over all clients
     cors_origins: str = "http://localhost:8501"  # comma-separated; the UI's origin
     api_url: str = "http://localhost:8000"  # where the UI finds the API
+    # How long the UI waits for /ask. A local CPU model can need minutes for one question.
+    ui_timeout_seconds: float = 120
 
     @property
     def cors_origin_list(self) -> list[str]:

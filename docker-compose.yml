@@ -31,6 +31,9 @@ services:
       READER_DATABASE_URL: postgresql+psycopg://agent_reader:reader_pw@db:5432/finquery
       # The embedding model is mounted from the host, so nothing is downloaded at start-up.
       HF_HUB_OFFLINE: "1"
+      # The host's Ollama, seen from inside the container (localhost would be the container).
+      # Only used when LLM_PROVIDER=ollama.
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
     volumes:
       - appdata:/srv/data
       # Put there by `uv run python -m ingestion.build_embeddings` during the data load.
@@ -61,6 +64,8 @@ services:
       - --server.headless=true
     environment:
       API_URL: http://api:8000
+      # A local model on a CPU can need minutes for one question; a hosted one answers sooner.
+      UI_TIMEOUT_SECONDS: "300"
     ports:
       - "8501:8501"
     depends_on:

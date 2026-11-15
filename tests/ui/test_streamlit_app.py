@@ -39,6 +39,7 @@ def api(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
     def post(url: str, **kwargs: Any) -> httpx.Response:
         control["calls"].append((url, kwargs.get("json")))
+        control["timeout"] = kwargs.get("timeout")
         if isinstance(control["reply"], Exception):
             raise control["reply"]
         return control["reply"]
@@ -87,6 +88,22 @@ def test_an_answer_shows_the_text_the_sql_the_rows_and_a_caption(
         {"period_end": "2025-06-30", "revenue": 76441000000}
     ]
     assert page.caption[-1].value == "2.3 s · 1 repair · numbers checked against the rows"
+
+
+def test_the_ui_waits_as_long_as_ui_timeout_seconds_says(
+    api: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.config import Settings, get_settings
+
+    assert Settings.model_fields["ui_timeout_seconds"].default == 120
+    for seconds in ("300", "45"):  # 300 is what compose sets for a local model
+        monkeypatch.setenv("UI_TIMEOUT_SECONDS", seconds)
+        get_settings.cache_clear()
+        try:
+            ask(AppTest.from_file(PAGE).run())
+        finally:
+            get_settings.cache_clear()
+        assert api["timeout"] == float(seconds)
 
 
 def test_an_example_button_asks_its_question(page: AppTest, api: dict[str, Any]) -> None:
