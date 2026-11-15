@@ -1,0 +1,4 @@
+{"id": "e01", "question": "What was Alphabet's total revenue in fiscal 2024?", "sql": "SELECT SUM(revenue) FROM income_statements WHERE ticker = 'GOOGL' AND fiscal_year = 2024"}
+{"id": "e02", "question": "What was Tesla's closing share price on 2 January 2025?", "sql": "SELECT close FROM daily_prices WHERE ticker = 'TSLA' AND trade_date = '2025-01-02'"}
+{"id": "e03", "question": "How much did Pfizer pay in dividends per share in calendar 2024?", "sql": "SELECT SUM(amount) FROM dividends WHERE ticker = 'PFE' AND ex_date BETWEEN '2024-01-01' AND '2024-12-31'"}
+{"id": "e04", "question": "What was Amazon's gross margin in each quarter of fiscal 2024?", "sql": "SELECT fiscal_quarter, gross_profit / revenue FROM income_statements WHERE ticker = 'AMZN' AND fiscal_year = 2024"}

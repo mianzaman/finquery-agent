@@ -1,0 +1,33 @@
+# A small schema description in the owner's format, for the retrieval tests.
+tables:
+  companies:
+    description: One row per company with its ticker, name and sector.
+    columns:
+      ticker: Stock ticker symbol, the key used by every other table.
+      name: Company name.
+      sector: Yahoo Finance sector such as Technology or Utilities.
+  income_statements:
+    description: >-
+      Quarterly income statement per company: revenue, gross profit and net income
+      for each fiscal quarter.
+    columns:
+      ticker: Company ticker.
+      fiscal_year: The company's fiscal year.
+      fiscal_quarter: Fiscal quarter, 1 to 4.
+      period_end: Last day of the fiscal quarter.
+      revenue: Total revenue (sales) for the quarter in USD.
+      gross_profit: Revenue minus cost of revenue for the quarter in USD; gross margin is gross profit divided by revenue.
+      net_income: Net income (profit, earnings) for the quarter in USD.
+  daily_prices:
+    description: Daily share price bars per company from Yahoo Finance.
+    columns:
+      ticker: Company ticker.
+      trade_date: Trading day.
+      close: Closing share price in USD, adjusted for stock splits.
+      volume: Number of shares traded that day.
+  dividends:
+    description: Cash dividend payouts per share.
+    columns:
+      ticker: Company ticker.
+      ex_date: Ex-dividend date.
+      amount: Dividend paid per share in USD.

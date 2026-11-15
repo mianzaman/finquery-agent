@@ -1,6 +1,6 @@
 """Tests for the nodes that are still stubs (and validate_sql): each returns only what it owns.
 
-The real nodes (guardrail, intent, entities) have their own test files.
+The real nodes (guardrail, intent, entities, retrieve_schema) have their own test files.
 """
 
 from typing import Any, get_type_hints
@@ -17,7 +17,6 @@ STATE_KEYS = set(get_type_hints(AgentState))
 
 # The keys each node may write, besides `trace`.
 OWNED = {
-    "retrieve_schema": {"schema_context", "examples"},
     "generate_sql": {"sql"},
     "validate_sql": {"validation_error"},
     "execute": {"columns", "rows", "db_error"},
@@ -38,7 +37,7 @@ def test_a_node_returns_only_its_own_keys_and_one_trace_event(name: str) -> None
 
 
 def test_every_node_is_either_listed_above_or_real() -> None:
-    assert set(OWNED) | {"guardrail", "intent", "entities"} == set(NODES)
+    assert set(OWNED) | {"guardrail", "intent", "entities", "retrieve_schema"} == set(NODES)
 
 
 @pytest.mark.parametrize(

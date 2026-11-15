@@ -1,11 +1,137 @@
-# Guidance for the descriptions in this file (the owner writes the descriptions themselves).
+# Descriptions the agent retrieves to choose tables and columns (owner-reviewed).
+# Format: tables -> <table> -> description, columns -> <column>: description.
+#
+# Conventions used in every description below:
+# - Money is in US dollars (full dollars, not millions). Per-share values are dollars per share.
+# - Values are as first filed in the company's original 10-Q or 10-K; later restatements are ignored.
+# - fiscal_year is the company's own fiscal year label; companies end their years in different
+#   months (Apple September, Microsoft June, Walmart January, most others December).
+# - Flow items (revenue, income, cash flows) are per quarter: a fiscal-year total is the SUM of
+#   that year's four quarters. Balance-sheet items are point-in-time: the fiscal-year-end value
+#   is the fiscal_quarter = 4 row, never a sum.
+# - For calendar-year questions, filter on period_end dates, not fiscal_year.
 #
 # Earnings per share and stock splits:
 # - income_statements.eps_diluted is as reported in the original filing. It is not adjusted for
 #   later stock splits, so a series can drop tenfold at a split (NVDA 2024, NFLX 2025).
-# - income_statements_split_adjusted is the same table plus eps_diluted_adjusted (on today's
-#   share basis) and split_factor (the divisor that was applied, 1 when none).
-# - Say in the descriptions: use eps_diluted_adjusted for EPS trends, growth, comparisons
-#   between periods, and anything set against daily_prices.close (which Yahoo has already
-#   adjusted for splits), such as P/E. Use eps_diluted only for "what did the company report".
+# - income_statements_split_adjusted adds eps_diluted_adjusted (today's share basis) and
+#   split_factor. Use eps_diluted_adjusted for EPS trends, growth, comparisons between periods,
+#   and anything set against daily_prices.close (already split-adjusted), such as P/E.
+#   Use eps_diluted only for "what did the company report".
 # - stock_splits.ratio is new shares per old share (10 = 10-for-1, 0.125 = 1-for-8 reverse).
+
+tables:
+  companies:
+    description: >-
+      One row per company in the dataset (50 large US companies): ticker, SEC identifier,
+      name, Yahoo Finance sector and industry, and the month its fiscal year ends.
+    columns:
+      ticker: Stock ticker symbol, the key used by every other table (e.g. AAPL, MSFT, JPM).
+      cik: The company's SEC Central Index Key.
+      name: Company name (e.g. Apple, JPMorgan Chase).
+      sector: >-
+        Yahoo Finance sector, not GICS. One of Technology, Communication Services, Consumer
+        Cyclical, Consumer Defensive, Financial Services, Healthcare, Energy, Industrials,
+        Utilities, Basic Materials, Real Estate.
+      industry: Yahoo Finance industry within the sector (e.g. Banks - Diversified, Semiconductors).
+      fiscal_year_end_month: Month number (1-12) in which the company's fiscal year ends.
+
+  income_statements:
+    description: >-
+      Quarterly income statement per company: revenue, gross profit, operating income, net
+      income and diluted EPS for each fiscal quarter, as first filed. Sum four quarters for a
+      fiscal-year total.
+    columns:
+      ticker: Company ticker; joins to companies.ticker.
+      fiscal_year: The company's own fiscal year label for this quarter.
+      fiscal_quarter: Quarter within the fiscal year, 1 to 4.
+      period_start: First day of the quarter.
+      period_end: Last day of the quarter; use for calendar-date filters and to find the latest quarter.
+      filed_date: Date the original 10-Q or 10-K reporting this quarter was filed.
+      revenue: Total revenue (sales) for the quarter, in USD.
+      gross_profit: >-
+        Revenue minus cost of revenue for the quarter, in USD. NULL for companies that report
+        no cost of revenue (including banks); calculated by the loader when not filed directly.
+      operating_income: Operating income (profit from operations) for the quarter, in USD. NULL for some banks and utilities.
+      net_income: Net income attributable to the company for the quarter, in USD.
+      eps_diluted: >-
+        Diluted earnings per share for the quarter as originally reported, in USD per share.
+        Not adjusted for later stock splits; use income_statements_split_adjusted for trends.
+      derived_columns: >-
+        List of column names in this row that the loader calculated rather than took from the
+        filing (e.g. {gross_profit}). Empty when every value was filed directly.
+
+  income_statements_split_adjusted:
+    description: >-
+      View: income_statements plus EPS restated to today's share basis. Use for EPS trends,
+      EPS growth, and ratios with share prices such as price-to-earnings (P/E).
+    columns:
+      eps_diluted_adjusted: Diluted EPS divided by every later stock split, in USD per share on today's share basis.
+      split_factor: The divisor applied to eps_diluted (1 when no split happened after the quarter was filed).
+
+  balance_sheets:
+    description: >-
+      Quarter-end balance sheet per company: total assets, total liabilities, shareholders'
+      equity, cash and long-term debt at the end of each fiscal quarter. Point-in-time values:
+      never sum them across quarters.
+    columns:
+      ticker: Company ticker; joins to companies.ticker.
+      fiscal_year: The company's own fiscal year label.
+      fiscal_quarter: Quarter within the fiscal year, 1 to 4; fiscal_quarter = 4 is the fiscal-year-end balance.
+      period_end: The balance-sheet date (last day of the quarter).
+      total_assets: Total assets at period end, in USD.
+      total_liabilities: >-
+        Total liabilities at period end, in USD; calculated as total liabilities and equity
+        minus total equity when not filed directly.
+      shareholders_equity: Total shareholders' equity at period end, in USD.
+      cash: Cash and cash equivalents at period end, in USD.
+      long_term_debt: Long-term debt at period end, in USD. NULL for some banks.
+      derived_columns: List of column names in this row calculated by the loader rather than filed.
+
+  cash_flows:
+    description: >-
+      Quarterly cash flow statement per company: operating cash flow, capital expenditure and
+      free cash flow for each fiscal quarter. Sum four quarters for a fiscal-year total.
+    columns:
+      ticker: Company ticker; joins to companies.ticker.
+      fiscal_year: The company's own fiscal year label.
+      fiscal_quarter: Quarter within the fiscal year, 1 to 4.
+      period_end: Last day of the quarter.
+      operating_cash_flow: Net cash provided by operating activities for the quarter, in USD.
+      capex: >-
+        Capital expenditure (purchases of property, plant and equipment) for the quarter, in USD,
+        as a positive number. NULL for banks and a few companies with no standard tag.
+      free_cash_flow: Operating cash flow minus capex for the quarter, in USD.
+      derived_columns: List of column names in this row calculated by the loader rather than filed.
+
+  daily_prices:
+    description: >-
+      Daily stock prices per company for the last five years: open, high, low, close and
+      volume for every trading day, from Yahoo Finance.
+    columns:
+      ticker: Company ticker; joins to companies.ticker.
+      trade_date: Trading day (weekends and market holidays have no row).
+      open: Opening price, in USD, adjusted for stock splits.
+      high: Highest price of the day, in USD, adjusted for stock splits.
+      low: Lowest price of the day, in USD, adjusted for stock splits.
+      close: >-
+        Closing price, in USD, adjusted for stock splits. Use for share-price questions,
+        price changes and P/E.
+      adj_close: Closing price adjusted for splits and dividends (total-return basis), in USD.
+      volume: Number of shares traded that day.
+
+  dividends:
+    description: >-
+      Cash dividends per share paid by each company, one row per payout, by ex-dividend date.
+      Sum the amounts for dividends per share over a period.
+    columns:
+      ticker: Company ticker; joins to companies.ticker.
+      ex_date: Ex-dividend date of the payout.
+      amount: Dividend per share for that payout, in USD per share.
+
+  stock_splits:
+    description: Stock splits and reverse splits per company, with the date and ratio.
+    columns:
+      ticker: Company ticker; joins to companies.ticker.
+      split_date: Date the split took effect.
+      ratio: New shares per old share (10 = 10-for-1 split, 0.5 = 1-for-2 reverse split).

@@ -22,6 +22,15 @@ QUARTERS_QUERY = """
 """
 
 
+# The tables and views a query may use: what the read-only role can see, minus the agent's own
+# lookup tables.
+SCHEMA_QUERY = """
+    SELECT table_name, column_name, data_type
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name NOT IN ('schema_docs', 'query_examples')
+    ORDER BY table_name, ordinal_position
+"""
 DATA_RANGE_QUERY = """
     SELECT
         (SELECT min(period_end) FROM income_statements),
@@ -84,3 +93,13 @@ def data_range() -> tuple[date | None, date | None]:
     _, rows, _ = run_select(DATA_RANGE_QUERY)
     first, last = rows[0]
     return first, last
+
+
+@lru_cache
+def schema_columns() -> dict[str, tuple[tuple[str, str], ...]]:
+    """Each queryable table or view with its `(column, data type)` pairs, in table order."""
+    _, rows, _ = run_select(SCHEMA_QUERY)
+    tables: dict[str, list[tuple[str, str]]] = {}
+    for table, column, data_type in rows:
+        tables.setdefault(table, []).append((column, data_type))
+    return {table: tuple(columns) for table, columns in tables.items()}

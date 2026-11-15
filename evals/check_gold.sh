@@ -3,7 +3,7 @@
 # Usage (from the project root): ./check_gold.sh [questions.draft.jsonl]
 set -euo pipefail
 FILE="${1:-questions.draft.jsonl}"
-jq -r 'select(.gold_sql != null) | [.id, .question, .gold_sql] | @tsv' "$FILE" |
+jq -r 'select((.gold_sql // .sql) != null) | [.id, .question, (.gold_sql // .sql)] | @tsv' "$FILE" |
 while IFS=$'\t' read -r id question sql; do
   echo "=================================================================="
   echo "$id  $question"
@@ -12,4 +12,4 @@ while IFS=$'\t' read -r id question sql; do
 done
 echo "=================================================================="
 echo "Out-of-scope questions (no SQL, must be refused):"
-jq -r 'select(.gold_sql == null) | "  \(.id)  \(.question)"' "$FILE"
+jq -r 'select((.gold_sql // .sql) == null) | "  \(.id)  \(.question)"' "$FILE"

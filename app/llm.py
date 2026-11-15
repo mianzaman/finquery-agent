@@ -243,6 +243,13 @@ def build_embeddings(settings: Settings) -> Embeddings:
     return FastEmbedEmbeddings(model_name=LOCAL_EMBEDDING_MODEL, cache_dir=str(EMBEDDING_CACHE_DIR))
 
 
+def embedding_model_name(settings: Settings) -> str:
+    """A label stored with every embedding, so vectors from two models are never mixed."""
+    if settings.embedding_provider == "openai":
+        return f"openai:{OPENAI_EMBEDDING_MODEL}@{EMBEDDING_DIMENSIONS}"
+    return f"local:{LOCAL_EMBEDDING_MODEL}"
+
+
 @lru_cache
 def get_embeddings() -> Embeddings:
     """The process-wide embedding model, from `.env`."""

@@ -54,11 +54,16 @@ DB_OK = {"db_error": None, "columns": ["value"], "rows": [(1,)]}
 
 ALLOWED = {"refused": False, "refusal_reason": None, "intent": "trend", "company_mentions": []}
 RESOLVED = {"tickers": ["AAPL"], "periods": []}
+RETRIEVED = {"schema_context": "companies (\n  ticker text,\n)", "examples": []}
 
 
 def run(**overrides: Any) -> AgentState:
     """Run the graph with the model-backed and database-backed nodes replaced by fakes."""
-    front = {"guardrail": fake("guardrail", ALLOWED), "entities": fake("entities", RESOLVED)}
+    front = {
+        "guardrail": fake("guardrail", ALLOWED),
+        "entities": fake("entities", RESOLVED),
+        "retrieve_schema": fake("retrieve_schema", RETRIEVED),
+    }
     return build_graph(front | overrides).invoke(initial_state("What was Apple's revenue?"))
 
 

@@ -21,6 +21,22 @@ def no_real_model(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(llm, "get_chat_model", refuse)
 
 
+@pytest.fixture(autouse=True)
+def no_real_embeddings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test may load the real embedding model (a 66 MB download, or a paid API call)."""
+    from app import llm
+    from app.db import retrieval
+
+    def refuse() -> None:
+        raise AssertionError(
+            "a test tried to use the real embedding model; patch get_embeddings with a fake"
+        )
+
+    monkeypatch.setattr(llm, "get_embeddings", refuse)
+    monkeypatch.setattr(retrieval, "get_embeddings", refuse)
+    retrieval.embed_question.cache_clear()
+
+
 @pytest.fixture(scope="session")
 def db() -> None:
     """A migrated database. Tests that use it are skipped when Postgres is unreachable."""

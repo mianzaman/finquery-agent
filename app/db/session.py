@@ -37,7 +37,10 @@ class QueryError(Exception):
 
 
 def run_select(
-    sql: str, max_rows: int = MAX_ROWS, engine: Engine | None = None
+    sql: str,
+    max_rows: int = MAX_ROWS,
+    engine: Engine | None = None,
+    params: dict[str, Any] | None = None,
 ) -> tuple[list[str], list[tuple[Any, ...]], bool]:
     """Run one validated query as `agent_reader` and return `(columns, rows, truncated)`.
 
@@ -49,6 +52,9 @@ def run_select(
     - the extended query protocol (`prepare=True`), under which the server refuses a string
       that holds more than one statement, whatever the SQL parser made of it.
     At most `max_rows` rows are fetched; `truncated` says whether more were available.
+
+    `params` is for the application's own fixed queries (`%(name)s` placeholders), never for
+    model-written SQL: with it, a literal `%` in the SQL must be written `%%`.
     """
     try:
         connection = (engine or reader_engine).connect()
@@ -61,7 +67,7 @@ def run_select(
             with raw.cursor() as cursor:
                 cursor.execute("SET TRANSACTION READ ONLY")
                 cursor.execute(f"SET LOCAL statement_timeout = {READER_STATEMENT_TIMEOUT_MS}")
-                cursor.execute(sql, prepare=True)
+                cursor.execute(sql, params, prepare=True)
                 if cursor.description is None:
                     raise QueryError("the statement returned no result set")
                 columns = [column.name for column in cursor.description]
