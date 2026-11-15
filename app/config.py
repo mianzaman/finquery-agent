@@ -16,12 +16,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # LLM
-    llm_provider: Literal["openrouter", "openai", "gemini"] = "openrouter"
+    llm_provider: Literal["openrouter", "openai", "gemini", "ollama"] = "openrouter"
     openrouter_api_key: SecretStr | None = None
     llm_model: str = ""
     llm_fallback_models: str = ""
     openai_api_key: SecretStr | None = None
     google_api_key: SecretStr | None = None
+    ollama_base_url: str = "http://localhost:11434"  # a local Ollama server; no key
 
     # Embeddings
     embedding_provider: Literal["local", "openai"] = "local"

@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from app.agent.nodes.validate_sql import SqlRejected, check_sql
 from app.agent.prompts import BASELINE_PROMPT
 from app.db.session import QueryError, run_select
-from app.llm import LLMError, RateLimitedError, structured, track_usage
+from app.llm import LLMConfigError, LLMError, RateLimitedError, structured, track_usage
 
 SCHEMA_QUERY = """
     SELECT table_name, column_name, data_type
@@ -93,7 +93,8 @@ def answer(question: str) -> BaselineResult:
     with track_usage() as usage:
         try:
             output = structured(BaselineOutput, [HumanMessage(prompt)])
-        except RateLimitedError:
+        except (RateLimitedError, LLMConfigError):
+            # Neither is about this question: the next one would fail the same way.
             raise
         except LLMError as exc:
             output = None

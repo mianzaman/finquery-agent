@@ -1,13 +1,17 @@
 """The only place that creates chat or embedding models and picks the provider.
 
 Everything else asks this module for a model, or calls `structured()`. Switching between the
-free OpenRouter models and paid OpenAI or Gemini is a change in `.env` only.
+free OpenRouter models, paid OpenAI or Gemini and a local Ollama model is a change in `.env`
+only.
 
 Request budget (free tier: 20 requests a minute, 50 a day):
 - every model shares one rate limiter set from `LLM_MAX_RPM`;
 - with `LLM_CACHE=true`, replies are cached in `data/llm_cache.sqlite`, so asking the same thing
   again costs no request;
 - nothing here retries a rate limit: it is raised as `RateLimitedError` for the caller to report.
+
+Ollama runs on this machine, so it has no request limit and no cost: no rate limiter, a long
+timeout (inference on a CPU is slow), and the cache stays on.
 """
 
 import json
@@ -20,6 +24,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import httpx
 import openai
 from langchain_core.caches import BaseCache
 from langchain_core.embeddings import Embeddings
@@ -42,6 +47,8 @@ OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSIONS = 384  # the width of the vector columns; both providers must match it
 
 REQUEST_TIMEOUT_SECONDS = 60
+# A local model on a CPU can take a minute to answer, and longer the first time it is loaded.
+OLLAMA_TIMEOUT_SECONDS = 300
 # Providers whose models reliably support tool calling, so structured output can be native.
 NATIVE_STRUCTURED_PROVIDERS = frozenset({"openai", "gemini"})
 
@@ -131,7 +138,12 @@ def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float | 
     return (input_tokens * prices[0] + output_tokens * prices[1]) / 1_000_000
 
 
-def _record(message: AIMessage, configured_model: str) -> None:
+def _is_local(model: BaseChatModel) -> bool:
+    """True for a model served by Ollama on this machine, which costs nothing per request."""
+    return type(model).__name__ == "ChatOllama"
+
+
+def _record(message: AIMessage, configured_model: str, local: bool = False) -> None:
     usage = _current_usage.get()
     if usage is None:
         return
@@ -147,7 +159,7 @@ def _record(message: AIMessage, configured_model: str) -> None:
             requests=1,
             input_tokens=tokens_in,
             output_tokens=tokens_out,
-            cost_usd=estimate_cost(model, tokens_in, tokens_out),
+            cost_usd=0.0 if local else estimate_cost(model, tokens_in, tokens_out),
             models=[model],
         )
     )
@@ -181,6 +193,22 @@ def _key(value: SecretStr | None, variable: str, provider: str) -> SecretStr:
 def build_chat_model(settings: Settings) -> BaseChatModel:
     """Create the chat model the settings ask for. Nothing is sent until it is called."""
     provider = settings.llm_provider
+    if provider == "ollama":
+        from langchain_ollama import ChatOllama
+
+        if not settings.llm_model:
+            raise LLMConfigError(
+                "LLM_MODEL is not set; LLM_PROVIDER=ollama needs a model you have pulled "
+                "(`ollama list`)"
+            )
+        return ChatOllama(
+            model=settings.llm_model,
+            base_url=settings.ollama_base_url,
+            temperature=0,
+            client_kwargs={"timeout": OLLAMA_TIMEOUT_SECONDS},
+            # No rate limiter: the server is local. The cache still saves repeated waits.
+            cache=_sqlite_cache(CACHE_PATH) if settings.llm_cache else False,
+        )
     common: dict[str, Any] = {
         "temperature": 0,
         "max_retries": 0,  # a rate limit is reported, not looped on
@@ -287,6 +315,28 @@ def _is_rate_limit(exc: Exception) -> bool:
     return isinstance(body, dict) and body.get("code") == 429
 
 
+def _failure(exc: Exception, model: BaseChatModel) -> LLMError:
+    """The one error callers see for a failed request, without the provider's own text."""
+    if _is_rate_limit(exc):
+        return _rate_limited(_retry_after(exc))
+    status = getattr(exc, "status_code", None)
+    if _is_local(model):
+        if isinstance(exc, httpx.ConnectError | ConnectionError):
+            where = getattr(model, "base_url", None) or "its usual address"
+            return LLMConfigError(f"Ollama is not running at {where}. Start Ollama: `ollama serve`")
+        if isinstance(exc, httpx.TimeoutException):
+            return LLMError(
+                f"the local model did not answer in {OLLAMA_TIMEOUT_SECONDS} s; try a smaller model"
+            )
+        if status == 404:
+            name = _model_name(model)
+            return LLMConfigError(
+                f"Ollama has no model named {name}. Pull it: `ollama pull {name}`"
+            )
+    detail = f"HTTP {status}" if status else type(exc).__name__
+    return LLMError(f"the model request failed ({detail})")
+
+
 def _model_name(model: BaseChatModel) -> str:
     return str(getattr(model, "model_name", None) or getattr(model, "model", "") or "unknown")
 
@@ -301,12 +351,8 @@ def invoke(messages: list[BaseMessage], model: BaseChatModel | None = None) -> A
     except Exception as exc:
         # Each provider SDK has its own error tree; callers get one, without the SDK's text
         # (which can quote request details).
-        if _is_rate_limit(exc):
-            raise _rate_limited(_retry_after(exc)) from exc
-        status = getattr(exc, "status_code", None)
-        detail = f"HTTP {status}" if status else type(exc).__name__
-        raise LLMError(f"the model request failed ({detail})") from exc
-    _record(reply, _model_name(model))
+        raise _failure(exc, model) from exc
+    _record(reply, _model_name(model), _is_local(model))
     return reply
 
 
@@ -369,23 +415,43 @@ def _structured_json[T: BaseModel](
     raise StructuredOutputError(f"the model's reply did not fit the schema: {_short(error)}")
 
 
+def _native_reply[T: BaseModel](
+    schema: type[T], messages: list[BaseMessage], model: BaseChatModel, **options: Any
+) -> T | None:
+    """One request using the provider's own structured output; None if the reply did not fit."""
+    runnable = model.with_structured_output(schema, include_raw=True, **options)
+    try:
+        result = runnable.invoke(messages)
+    except LLMError:
+        raise
+    except Exception as exc:
+        raise _failure(exc, model) from exc
+    _record(result["raw"], _model_name(model), _is_local(model))
+    parsed = result.get("parsed")
+    return parsed if isinstance(parsed, schema) else None
+
+
 def _structured_native[T: BaseModel](
     schema: type[T], messages: list[BaseMessage], model: BaseChatModel
 ) -> T:
-    runnable = model.with_structured_output(schema, include_raw=True)
-    try:
-        result = runnable.invoke(messages)
-    except Exception as exc:
-        if _is_rate_limit(exc):
-            raise _rate_limited(_retry_after(exc)) from exc
-        status = getattr(exc, "status_code", None)
-        detail = f"HTTP {status}" if status else type(exc).__name__
-        raise LLMError(f"the model request failed ({detail})") from exc
-    _record(result["raw"], _model_name(model))
-    parsed = result.get("parsed")
-    if not isinstance(parsed, schema):
+    parsed = _native_reply(schema, messages, model)
+    if parsed is None:
         raise StructuredOutputError("the model's reply did not fit the schema")
     return parsed
+
+
+def _structured_ollama[T: BaseModel](
+    schema: type[T], messages: list[BaseMessage], model: BaseChatModel
+) -> T:
+    """Ollama constrains the reply to the JSON schema; small models can still miss it.
+
+    When the constrained reply does not validate (cut off, or a value of the wrong kind), the
+    question is asked again the plain way: JSON in the text, parsed and validated, one retry.
+    """
+    parsed = _native_reply(schema, messages, model, method="json_schema")
+    if parsed is not None:
+        return parsed
+    return _structured_json(schema, messages, model)
 
 
 def structured[T: BaseModel](
@@ -398,10 +464,15 @@ def structured[T: BaseModel](
 
     Paid providers use their native structured output. Free models often have no tool calling,
     so there the model is asked for JSON only, the object is pulled out of the reply and
-    validated, and one retry shows the model what was wrong. `native` overrides the choice.
+    validated, and one retry shows the model what was wrong. Ollama gets its JSON-schema
+    output first and that plain way as the fallback. `native` overrides the choice for the
+    other providers.
     """
+    provider = get_settings().llm_provider if native is None else None
+    if provider == "ollama":
+        return _structured_ollama(schema, messages, model or get_chat_model())
     if native is None:
-        native = get_settings().llm_provider in NATIVE_STRUCTURED_PROVIDERS
+        native = provider in NATIVE_STRUCTURED_PROVIDERS
     if native:
         return _structured_native(schema, messages, model or get_chat_model())
     return _structured_json(schema, messages, model)

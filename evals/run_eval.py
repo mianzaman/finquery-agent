@@ -514,7 +514,7 @@ def agent_answer(question: str) -> dict[str, Any]:
     import time as clock
 
     from app.agent.graph import run_agent
-    from app.llm import LLMError, RateLimitedError, track_usage
+    from app.llm import LLMConfigError, LLMError, RateLimitedError, track_usage
 
     started = clock.perf_counter()
     state: dict[str, Any] = {}
@@ -522,7 +522,8 @@ def agent_answer(question: str) -> dict[str, Any]:
     with track_usage() as usage:
         try:
             state = dict(run_agent(question))
-        except RateLimitedError:
+        except (RateLimitedError, LLMConfigError):
+            # Neither is about this question: the next one would fail the same way.
             raise
         except LLMError as exc:
             error = f"model: {exc}"

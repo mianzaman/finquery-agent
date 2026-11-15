@@ -384,3 +384,213 @@ def test_openai_embeddings_are_cut_to_the_same_384_dimensions() -> None:
     assert (embeddings.model, embeddings.dimensions) == ("text-embedding-3-small", 384)
     with pytest.raises(LLMConfigError, match="OPENAI_API_KEY"):
         build_embeddings(settings(embedding_provider="openai"))
+
+
+# --- Ollama (a local model): the class is replaced, so nothing is sent --------------------------
+
+
+class ChatOllama:
+    """Stands in for `langchain_ollama.ChatOllama` (the wrapper recognises it by this name).
+
+    `native` is what the JSON-schema call returns (or raises); `replies` answer plain calls.
+    """
+
+    def __init__(self, native: Any = None, replies: list[Any] | None = None, **kwargs: Any) -> None:
+        self.native = native
+        self.replies = list(replies or [])
+        self.kwargs = kwargs
+        self.model = kwargs.get("model", "local-model:3b")
+        self.base_url = kwargs.get("base_url", "http://localhost:11434")
+        self.methods: list[str] = []
+        self.seen: list[list[Any]] = []
+
+    def with_structured_output(
+        self, schema: type[BaseModel], include_raw: bool, method: str
+    ) -> "ChatOllama":
+        assert include_raw
+        self.methods.append(method)
+        return _OllamaStructured(self)  # type: ignore[return-value]
+
+    def invoke(self, messages: list[Any]) -> Any:
+        self.seen.append(list(messages))
+        item = self.replies.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+class _OllamaStructured:
+    def __init__(self, model: ChatOllama) -> None:
+        self.model = model
+
+    def invoke(self, messages: list[Any]) -> Any:
+        if isinstance(self.model.native, Exception):
+            raise self.model.native
+        return self.model.native
+
+
+@pytest.fixture
+def ollama_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`LLM_PROVIDER=ollama`, so `structured()` picks the Ollama path by itself."""
+    chosen = settings(llm_provider="ollama", llm_model="local-model:3b")
+    monkeypatch.setattr(llm, "get_settings", lambda: chosen)
+
+
+def test_ollama_model_is_local_uncapped_and_patient(monkeypatch: pytest.MonkeyPatch) -> None:
+    import langchain_ollama
+
+    monkeypatch.setattr(langchain_ollama, "ChatOllama", ChatOllama)
+
+    model = build_chat_model(
+        settings(
+            llm_provider="ollama", llm_model="local-model:3b", ollama_base_url="http://box:11434"
+        )
+    )
+
+    assert isinstance(model, ChatOllama)
+    assert model.kwargs == {
+        "model": "local-model:3b",
+        "base_url": "http://box:11434",
+        "temperature": 0,
+        "client_kwargs": {"timeout": llm.OLLAMA_TIMEOUT_SECONDS},
+        "cache": False,
+    }
+    assert "rate_limiter" not in model.kwargs  # a local server has no request limit
+    assert llm.OLLAMA_TIMEOUT_SECONDS > llm.REQUEST_TIMEOUT_SECONDS
+
+
+def test_ollama_keeps_the_reply_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import langchain_ollama
+
+    monkeypatch.setattr(langchain_ollama, "ChatOllama", ChatOllama)
+    monkeypatch.setattr(llm, "CACHE_PATH", tmp_path / "cache.sqlite")
+
+    model = build_chat_model(settings(llm_provider="ollama", llm_model="m", llm_cache=True))
+
+    assert type(model.kwargs["cache"]).__name__ == "SQLiteCache"  # type: ignore[attr-defined]
+
+
+def test_ollama_needs_a_model_name_but_no_key() -> None:
+    with pytest.raises(LLMConfigError, match="LLM_MODEL is not set; LLM_PROVIDER=ollama"):
+        build_chat_model(settings(llm_provider="ollama"))
+
+
+def test_the_real_ollama_class_is_built_without_a_request() -> None:
+    """Constructing the real class must not contact a server (none runs in CI)."""
+    model = build_chat_model(
+        settings(llm_provider="ollama", llm_model="m", ollama_base_url="http://127.0.0.1:9")
+    )
+
+    assert type(model).__name__ == "ChatOllama"
+    assert (model.model, model.base_url, model.temperature) == ("m", "http://127.0.0.1:9", 0)  # type: ignore[attr-defined]
+    assert model.rate_limiter is None
+
+
+def test_ollama_structured_output_uses_the_json_schema_and_costs_nothing(
+    ollama_settings: None,
+) -> None:
+    parsed = Verdict(sql="SELECT 1", confidence=5)
+    model = ChatOllama(native={"raw": reply("", 1000, 500), "parsed": parsed})
+
+    with track_usage() as usage:
+        assert structured(Verdict, ASK, model=model) is parsed  # type: ignore[arg-type]
+
+    assert model.methods == ["json_schema"]
+    assert model.seen == []  # no second request
+    assert (usage.requests, usage.total_tokens, usage.cost_usd) == (1, 1500, 0.0)
+
+
+def test_ollama_falls_back_to_parsing_json_with_one_retry(ollama_settings: None) -> None:
+    model = ChatOllama(
+        native={"raw": reply('{"sql": "SELECT'), "parsed": None, "parsing_error": "cut off"},
+        replies=[reply("not json"), reply('{"sql": "SELECT 1", "confidence": 4}')],
+    )
+
+    with track_usage() as usage:
+        result = structured(Verdict, ASK, model=model)  # type: ignore[arg-type]
+
+    assert result == Verdict(sql="SELECT 1", confidence=4)
+    assert len(model.seen) == 2  # the plain request and its one retry
+    assert "could not be used" in model.seen[1][-1].content
+    assert (usage.requests, usage.cost_usd) == (3, 0.0)
+
+
+def test_ollama_gives_up_after_the_fallback_and_its_retry(ollama_settings: None) -> None:
+    model = ChatOllama(
+        native={"raw": reply("x"), "parsed": None},
+        replies=[reply("no"), reply("still no"), reply("never asked")],
+    )
+
+    with pytest.raises(StructuredOutputError):
+        structured(Verdict, ASK, model=model)  # type: ignore[arg-type]
+
+    assert len(model.seen) == 2
+
+
+def status_error(status: int) -> Exception:
+    error = Exception("provider text that must not be shown")
+    error.status_code = status  # type: ignore[attr-defined]
+    return error
+
+
+@pytest.mark.parametrize(
+    ("failure", "kind", "message"),
+    [
+        (
+            httpx.ConnectError("[Errno 111] Connection refused"),
+            LLMConfigError,
+            "Ollama is not running at http://localhost:11434. Start Ollama: `ollama serve`",
+        ),
+        (
+            ConnectionError("Failed to connect to Ollama"),
+            LLMConfigError,
+            "Ollama is not running at http://localhost:11434. Start Ollama: `ollama serve`",
+        ),
+        (
+            status_error(404),
+            LLMConfigError,
+            "Ollama has no model named local-model:3b. Pull it: `ollama pull local-model:3b`",
+        ),
+        (
+            httpx.ReadTimeout("timed out"),
+            LLMError,
+            "the local model did not answer in 300 s; try a smaller model",
+        ),
+        (status_error(500), LLMError, "the model request failed (HTTP 500)"),
+    ],
+)
+def test_ollama_failures_say_what_to_do(
+    ollama_settings: None, failure: Exception, kind: type[Exception], message: str
+) -> None:
+    structured_model = ChatOllama(native=failure)
+    plain_model = ChatOllama(replies=[failure])
+
+    with pytest.raises(kind) as from_structured:
+        structured(Verdict, ASK, model=structured_model)  # type: ignore[arg-type]
+    with pytest.raises(kind) as from_plain:
+        llm.invoke(ASK, model=plain_model)  # type: ignore[arg-type]
+
+    assert str(from_structured.value) == str(from_plain.value) == message
+    assert structured_model.seen == []  # a failed request is not retried the plain way
+
+
+def test_a_connection_error_from_another_provider_does_not_mention_ollama() -> None:
+    model = ScriptedChat(replies=[httpx.ConnectError("refused")])
+
+    with pytest.raises(LLMError, match=r"the model request failed \(ConnectError\)"):
+        llm.invoke(ASK, model=model)
+
+
+def test_the_other_providers_keep_their_structured_output_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for provider, native in (("openrouter", False), ("openai", True)):
+        chosen = settings(llm_provider=provider)
+        monkeypatch.setattr(llm, "get_settings", lambda chosen=chosen: chosen)
+        parsed = Verdict(sql=None, confidence=1)
+        model = NativeModel({"raw": reply("", 1, 1), "parsed": parsed})
+        if native:
+            assert structured(Verdict, ASK, model=model) is parsed  # type: ignore[arg-type]
+        else:
+            scripted = ScriptedChat(replies=[reply('{"sql": null, "confidence": 1}')])
+            assert structured(Verdict, ASK, model=scripted) == parsed

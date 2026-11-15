@@ -11,6 +11,7 @@ ENV_VARS = [
     "LLM_FALLBACK_MODELS",
     "OPENAI_API_KEY",
     "GOOGLE_API_KEY",
+    "OLLAMA_BASE_URL",
     "EMBEDDING_PROVIDER",
     "LLM_MAX_RPM",
     "LLM_CACHE",
@@ -37,6 +38,7 @@ def test_defaults_without_env(clean_env: pytest.MonkeyPatch) -> None:
     assert settings.llm_cache is True
     assert settings.openrouter_api_key is None
     assert settings.fallback_models == []
+    assert settings.ollama_base_url == "http://localhost:11434"
 
 
 def test_reads_environment(clean_env: pytest.MonkeyPatch) -> None:
@@ -50,6 +52,26 @@ def test_reads_environment(clean_env: pytest.MonkeyPatch) -> None:
     assert settings.llm_max_rpm == 5
     assert settings.openai_api_key is not None
     assert settings.openai_api_key.get_secret_value() == "test-key"
+
+
+def test_ollama_is_a_provider_with_its_own_address(clean_env: pytest.MonkeyPatch) -> None:
+    clean_env.setenv("LLM_PROVIDER", "ollama")
+    clean_env.setenv("LLM_MODEL", "some-model:3b")
+    clean_env.setenv("OLLAMA_BASE_URL", "http://gpu-box:11434")
+
+    settings = Settings(_env_file=None)
+
+    assert (settings.llm_provider, settings.llm_model) == ("ollama", "some-model:3b")
+    assert settings.ollama_base_url == "http://gpu-box:11434"
+
+
+@pytest.mark.parametrize("provider", ["openrouter", "openai", "gemini", "ollama"])
+def test_every_documented_provider_is_accepted(
+    clean_env: pytest.MonkeyPatch, provider: str
+) -> None:
+    clean_env.setenv("LLM_PROVIDER", provider)
+
+    assert Settings(_env_file=None).llm_provider == provider
 
 
 @pytest.mark.parametrize(

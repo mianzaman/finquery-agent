@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from app import baseline, llm
 from app.baseline import answer, schema_text
-from app.llm import RateLimitedError
+from app.llm import LLMConfigError, RateLimitedError
 from tests.fakes import ScriptedChat, reply
 from tests.test_llm import provider_error
 
@@ -110,3 +110,11 @@ def test_a_rate_limit_is_raised_so_a_batch_can_stop(model: ScriptedChat) -> None
     with pytest.raises(RateLimitedError):
         answer("anything")
     assert isinstance(provider_error(429), openai.RateLimitError)
+
+
+def test_a_configuration_error_is_raised_too(model: ScriptedChat) -> None:
+    """Ollama not running, or a missing key, fails every question alike: stop, do not score."""
+    model.replies = [LLMConfigError("Ollama is not running. Start Ollama: `ollama serve`")]
+
+    with pytest.raises(LLMConfigError, match="ollama serve"):
+        answer("anything")

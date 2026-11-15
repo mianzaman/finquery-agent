@@ -780,6 +780,13 @@ def test_agent_answer_turns_a_model_failure_into_an_error_and_raises_a_rate_limi
     with pytest.raises(RateLimitedError):
         run_eval.agent_answer("q")
 
+    # A configuration error (no key, Ollama not running) is the same for every question.
+    from app.llm import LLMConfigError
+
+    monkeypatch.setattr("app.agent.graph.run_agent", fail(LLMConfigError))
+    with pytest.raises(LLMConfigError):
+        run_eval.agent_answer("q")
+
     # Anything else that breaks the agent is scored as a failure, so a run is not lost.
     monkeypatch.setattr("app.agent.graph.run_agent", fail(RuntimeError))
     broken = run_eval.agent_answer("q")
