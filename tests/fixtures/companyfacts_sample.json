@@ -1,0 +1,689 @@
+{
+ "ALFA": {
+  "cik": 1001,
+  "entityName": "Alfa Corp",
+  "facts": {
+   "us-gaap": {
+    "Revenues": {
+     "label": "Revenues",
+     "units": {
+      "USD": [
+       {
+        "start": "2023-01-01",
+        "end": "2023-12-31",
+        "val": 400,
+        "accn": "A-K23",
+        "fy": 2023,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2024-02-15"
+       },
+       {
+        "start": "2023-01-01",
+        "end": "2023-03-31",
+        "val": 90,
+        "accn": "A-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-03-31",
+        "val": 100,
+        "accn": "A-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-03-31",
+        "val": 102,
+        "accn": "A-Q1A",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q/A",
+        "filed": "2024-06-15"
+       },
+       {
+        "start": "2024-04-01",
+        "end": "2024-06-30",
+        "val": 110,
+        "accn": "A-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-06-30",
+        "val": 210,
+        "accn": "A-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-09-30",
+        "val": 330,
+        "accn": "A-Q3",
+        "fy": 2024,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2024-11-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "val": 480,
+        "accn": "A-K24",
+        "fy": 2024,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2025-02-15"
+       }
+      ]
+     }
+    },
+    "NetIncomeLoss": {
+     "label": "NetIncomeLoss",
+     "units": {
+      "USD": [
+       {
+        "start": "2023-01-01",
+        "end": "2023-12-31",
+        "val": 40,
+        "accn": "A-K23",
+        "fy": 2023,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2024-02-15"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-03-31",
+        "val": 10,
+        "accn": "A-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-06-30",
+        "val": 22,
+        "accn": "A-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-09-30",
+        "val": 36,
+        "accn": "A-Q3",
+        "fy": 2024,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2024-11-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "val": 52,
+        "accn": "A-K24",
+        "fy": 2024,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2025-02-15"
+       }
+      ]
+     }
+    },
+    "EarningsPerShareDiluted": {
+     "label": "EarningsPerShareDiluted",
+     "units": {
+      "USD/shares": [
+       {
+        "start": "2024-01-01",
+        "end": "2024-03-31",
+        "val": 1.0,
+        "accn": "A-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "start": "2024-04-01",
+        "end": "2024-06-30",
+        "val": 1.2,
+        "accn": "A-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-06-30",
+        "val": 2.2,
+        "accn": "A-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       },
+       {
+        "start": "2024-07-01",
+        "end": "2024-09-30",
+        "val": 1.4,
+        "accn": "A-Q3",
+        "fy": 2024,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2024-11-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-09-30",
+        "val": 3.6,
+        "accn": "A-Q3",
+        "fy": 2024,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2024-11-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "val": 5.2,
+        "accn": "A-K24",
+        "fy": 2024,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2025-02-15"
+       }
+      ]
+     }
+    },
+    "NetCashProvidedByUsedInOperatingActivities": {
+     "label": "NetCashProvidedByUsedInOperatingActivities",
+     "units": {
+      "USD": [
+       {
+        "start": "2023-01-01",
+        "end": "2023-12-31",
+        "val": 90,
+        "accn": "A-K23",
+        "fy": 2023,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2024-02-15"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-03-31",
+        "val": 20,
+        "accn": "A-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-06-30",
+        "val": 45,
+        "accn": "A-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-09-30",
+        "val": 75,
+        "accn": "A-Q3",
+        "fy": 2024,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2024-11-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "val": 110,
+        "accn": "A-K24",
+        "fy": 2024,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2025-02-15"
+       }
+      ]
+     }
+    },
+    "PaymentsToAcquirePropertyPlantAndEquipment": {
+     "label": "PaymentsToAcquirePropertyPlantAndEquipment",
+     "units": {
+      "USD": [
+       {
+        "start": "2024-01-01",
+        "end": "2024-03-31",
+        "val": 5,
+        "accn": "A-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-06-30",
+        "val": 11,
+        "accn": "A-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-09-30",
+        "val": 18,
+        "accn": "A-Q3",
+        "fy": 2024,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2024-11-01"
+       },
+       {
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "val": 26,
+        "accn": "A-K24",
+        "fy": 2024,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2025-02-15"
+       }
+      ]
+     }
+    },
+    "Assets": {
+     "label": "Assets",
+     "units": {
+      "USD": [
+       {
+        "end": "2023-12-31",
+        "val": 990,
+        "accn": "A-K23",
+        "fy": 2023,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2024-02-15"
+       },
+       {
+        "end": "2023-12-31",
+        "val": 990,
+        "accn": "A-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "end": "2024-03-31",
+        "val": 1000,
+        "accn": "A-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "end": "2024-06-30",
+        "val": 1010,
+        "accn": "A-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       },
+       {
+        "end": "2024-09-30",
+        "val": 1020,
+        "accn": "A-Q3",
+        "fy": 2024,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2024-11-01"
+       },
+       {
+        "end": "2024-12-31",
+        "val": 1030,
+        "accn": "A-K24",
+        "fy": 2024,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2025-02-15"
+       }
+      ]
+     }
+    },
+    "StockholdersEquity": {
+     "label": "StockholdersEquity",
+     "units": {
+      "USD": [
+       {
+        "end": "2024-03-31",
+        "val": 500,
+        "accn": "A-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "end": "2024-06-30",
+        "val": 510,
+        "accn": "A-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       },
+       {
+        "end": "2024-09-30",
+        "val": 520,
+        "accn": "A-Q3",
+        "fy": 2024,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2024-11-01"
+       },
+       {
+        "end": "2024-12-31",
+        "val": 530,
+        "accn": "A-K24",
+        "fy": 2024,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2025-02-15"
+       }
+      ]
+     }
+    },
+    "CashAndCashEquivalentsAtCarryingValue": {
+     "label": "CashAndCashEquivalentsAtCarryingValue",
+     "units": {
+      "USD": [
+       {
+        "end": "2024-03-31",
+        "val": 50,
+        "accn": "A-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       }
+      ]
+     }
+    },
+    "Cash": {
+     "label": "Cash",
+     "units": {
+      "USD": [
+       {
+        "end": "2024-03-31",
+        "val": 49,
+        "accn": "A-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "end": "2024-06-30",
+        "val": 55,
+        "accn": "A-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       }
+      ]
+     }
+    }
+   }
+  }
+ },
+ "BETA": {
+  "cik": 1002,
+  "entityName": "Beta Inc",
+  "facts": {
+   "us-gaap": {
+    "RevenueFromContractWithCustomerExcludingAssessedTax": {
+     "label": "RevenueFromContractWithCustomerExcludingAssessedTax",
+     "units": {
+      "USD": [
+       {
+        "start": "2022-10-02",
+        "end": "2023-09-30",
+        "val": 800,
+        "accn": "B-K23",
+        "fy": 2023,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2023-11-10"
+       },
+       {
+        "start": "2023-10-01",
+        "end": "2023-12-30",
+        "val": 200,
+        "accn": "B-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-02-01"
+       },
+       {
+        "start": "2023-12-31",
+        "end": "2024-03-30",
+        "val": 210,
+        "accn": "B-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "start": "2024-03-31",
+        "end": "2024-06-29",
+        "val": 220,
+        "accn": "B-Q3",
+        "fy": 2024,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       },
+       {
+        "start": "2023-10-01",
+        "end": "2024-09-28",
+        "val": 900,
+        "accn": "B-K24",
+        "fy": 2024,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2024-11-08"
+       },
+       {
+        "start": "2024-09-29",
+        "end": "2024-12-28",
+        "val": 230,
+        "accn": "B-Q1-25",
+        "fy": 2025,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2025-01-31"
+       }
+      ]
+     }
+    },
+    "NetIncomeLoss": {
+     "label": "NetIncomeLoss",
+     "units": {
+      "USD": [
+       {
+        "start": "2022-10-02",
+        "end": "2023-09-30",
+        "val": 80,
+        "accn": "B-K23",
+        "fy": 2023,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2023-11-10"
+       },
+       {
+        "start": "2023-10-01",
+        "end": "2023-12-30",
+        "val": 20,
+        "accn": "B-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-02-01"
+       },
+       {
+        "start": "2023-12-31",
+        "end": "2024-03-30",
+        "val": 21,
+        "accn": "B-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "start": "2024-03-31",
+        "end": "2024-06-29",
+        "val": 22,
+        "accn": "B-Q3",
+        "fy": 2024,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       },
+       {
+        "start": "2023-10-01",
+        "end": "2024-09-28",
+        "val": 90,
+        "accn": "B-K24",
+        "fy": 2024,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2024-11-08"
+       },
+       {
+        "start": "2024-09-29",
+        "end": "2024-12-28",
+        "val": 25,
+        "accn": "B-Q1-25",
+        "fy": 2025,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2025-01-31"
+       }
+      ]
+     }
+    },
+    "Assets": {
+     "label": "Assets",
+     "units": {
+      "USD": [
+       {
+        "end": "2023-09-30",
+        "val": 2000,
+        "accn": "B-K23",
+        "fy": 2023,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2023-11-10"
+       },
+       {
+        "end": "2023-12-30",
+        "val": 2010,
+        "accn": "B-Q1",
+        "fy": 2024,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2024-02-01"
+       },
+       {
+        "end": "2024-03-30",
+        "val": 2020,
+        "accn": "B-Q2",
+        "fy": 2024,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2024-05-01"
+       },
+       {
+        "end": "2024-06-29",
+        "val": 2030,
+        "accn": "B-Q3",
+        "fy": 2024,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2024-08-01"
+       },
+       {
+        "end": "2024-09-28",
+        "val": 2040,
+        "accn": "B-K24",
+        "fy": 2024,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2024-11-08"
+       },
+       {
+        "end": "2024-12-28",
+        "val": 2050,
+        "accn": "B-Q1-25",
+        "fy": 2025,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2025-01-31"
+       }
+      ]
+     }
+    },
+    "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents": {
+     "label": "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+     "units": {
+      "USD": [
+       {
+        "end": "2024-09-28",
+        "val": 300,
+        "accn": "B-K24",
+        "fy": 2024,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2024-11-08"
+       }
+      ]
+     }
+    }
+   }
+  }
+ }
+}

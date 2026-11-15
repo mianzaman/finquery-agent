@@ -1,0 +1,70 @@
+# XBRL tags (us-gaap taxonomy) for each financial column, tried in order.
+# For every quarter the loader takes the first tag in the list that has a value for that quarter,
+# so a company that changed tags over time is still covered.
+# free_cash_flow is not mapped: it is operating_cash_flow - capex.
+
+income_statements:
+  revenue:
+    - Revenues
+    - RevenueFromContractWithCustomerExcludingAssessedTax
+    - SalesRevenueNet
+    - RevenueFromContractWithCustomerIncludingAssessedTax
+    - RevenuesNetOfInterestExpense
+  gross_profit:
+    - GrossProfit
+  operating_income:
+    - OperatingIncomeLoss
+  net_income:
+    - NetIncomeLoss
+    - ProfitLoss
+  eps_diluted:
+    - EarningsPerShareDiluted
+    - EarningsPerShareBasicAndDiluted
+
+balance_sheets:
+  total_assets:
+    - Assets
+  total_liabilities:
+    - Liabilities
+  shareholders_equity:
+    - StockholdersEquity
+    - StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest
+  cash:
+    - CashAndCashEquivalentsAtCarryingValue
+    - CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents
+    - Cash
+  long_term_debt:
+    - LongTermDebtNoncurrent
+    - LongTermDebt
+    - LongTermDebtAndCapitalLeaseObligations
+
+cash_flows:
+  operating_cash_flow:
+    - NetCashProvidedByUsedInOperatingActivities
+    - NetCashProvidedByUsedInOperatingActivitiesContinuingOperations
+  capex:
+    - PaymentsToAcquirePropertyPlantAndEquipment
+    - PaymentsToAcquireProductiveAssets
+    - PaymentsToAcquirePropertyPlantAndEquipmentAndIntangibleAssets
+    # Verizon files its capital expenditures under this tag.
+    - PaymentsToAcquireOtherProductiveAssets
+
+# Not columns. Inputs for values the loader calculates when a company does not file them
+# (see derive_columns in load_sec.py). Rows record what was calculated in derived_columns.
+#   gross_profit      = revenue - cost_of_revenue
+#   total_liabilities = liabilities_and_equity - total_equity
+#   capex             = capex_oil_and_gas + capex_other_property (both must be filed)
+derived_inputs:
+  cost_of_revenue:
+    - CostOfRevenue
+    - CostOfGoodsAndServicesSold
+  liabilities_and_equity:
+    - LiabilitiesAndStockholdersEquity
+  total_equity:
+    - StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest
+    - StockholdersEquity
+  # Oil and gas producers (EOG) report capital spending on two lines of the cash flow statement.
+  capex_oil_and_gas:
+    - PaymentsToAcquireOilAndGasPropertyAndEquipment
+  capex_other_property:
+    - PaymentsToAcquireOtherPropertyPlantAndEquipment

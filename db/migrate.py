@@ -92,13 +92,10 @@ def run(engine: Engine, reader_url: str) -> list[str]:
 
 def main() -> int:
     """Command-line entry point: `uv run python -m db.migrate`."""
-    from app.config import get_settings
+    from app.config import LOG_FORMAT, get_settings
     from app.db.session import admin_engine
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format='{"level": "%(levelname)s", "logger": "%(name)s", "message": "%(message)s"}',
-    )
+    logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
     try:
         applied = run(admin_engine, get_settings().reader_database_url.get_secret_value())
     except MigrationError as exc:

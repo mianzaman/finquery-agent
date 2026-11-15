@@ -3,6 +3,7 @@ AGENTS.md
 CLAUDE.md
 PLAN.md
 .env
+.claude/
 
 # Python
 .venv/

@@ -1,0 +1,34 @@
+# Other SEC registrants (CIKs) that hold part of a company's facts. Found with
+# `uv run python -m ingestion.inspect_facts <TICKER> --filings`: the main file stops or starts
+# where it should not. The loader adds only the filings the main file does not have.
+#
+# predecessors:   an earlier registrant for the same company. All of its filings are used.
+# co_registrants: a subsidiary that files a combined report with the parent. Since mid-2026 SEC
+#                 puts the combined 10-Q's consolidated facts under one of these instead of the
+#                 parent, and not always the same one. Their files also hold the subsidiary's
+#                 own numbers, so a filing is used only when it repeats a total-assets figure
+#                 the parent already reported.
+
+XOM:
+  predecessors:
+    - 34088      # Exxon Mobil Corp, before ExxonMobil Holdings Corporation (2026)
+NEE:
+  co_registrants:
+    - 37634      # Florida Power & Light
+PLD:
+  co_registrants:
+    - 1045610    # Prologis, L.P.
+DUK:
+  co_registrants:
+    - 17797      # Duke Energy Progress
+SO:
+  co_registrants:
+    - 1004155    # Southern Company Gas
+    - 66904      # Mississippi Power
+D:
+  co_registrants:
+    - 103682     # Virginia Electric and Power
+AEP:
+  co_registrants:
+    - 81027      # Public Service Company of Oklahoma
+    - 92487      # Southwestern Electric Power

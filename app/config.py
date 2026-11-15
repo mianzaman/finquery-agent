@@ -6,6 +6,9 @@ from typing import Literal
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# One JSON object per log line; used by every command-line entry point.
+LOG_FORMAT = '{"level": "%(levelname)s", "logger": "%(name)s", "message": "%(message)s"}'
+
 
 class Settings(BaseSettings):
     """Every setting the project reads from the environment or `.env`."""
