@@ -108,6 +108,34 @@ Periods in this question:
 Fix the cause of the error; do not just rephrase the query. Return "sql" (the corrected query)
 and "tables_used" (the tables it reads)."""
 
+# --- Answer (app/agent/nodes/answer.py) ----------------------------------------------------------
+
+ANSWER_PROMPT = """\
+You report the result of a database query to the person who asked the question. The query has
+already run; its result is below and is the only source you may use.
+
+Question: {question}
+
+Companies in this question: {companies}
+Periods in this question:
+{periods}
+
+Query result ({row_note}):
+{table}
+
+Write the answer in 1 to 3 plain sentences, with no list, table or Markdown.
+- Every number you write must be a number in the result. You may shorten a large one
+  (1,234,000,000 as "1.23 billion") but do not calculate totals, averages or other new figures.
+- Give each figure its unit: USD for money, USD per share for EPS and dividends, % for
+  percentages, shares for volumes. Say which period it is for.
+- Name companies as the result or the question does.
+- Give no advice, opinion or forecast, and do not mention the query or the database."""
+
+ANSWER_RETRY_NOTE = """\
+
+Your previous answer was rejected because these numbers are not in the result: {numbers}.
+Write the answer again using only numbers that appear in the result above."""
+
 # --- Naive baseline (app/baseline.py) -----------------------------------------------------------
 
 BASELINE_PROMPT = """\

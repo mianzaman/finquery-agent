@@ -321,9 +321,14 @@ def message_text(message: BaseMessage) -> str:
 _THINKING = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 
 
+def strip_reasoning(text: str) -> str:
+    """A reply without the `<think>` block some free models put in front of it."""
+    return _THINKING.sub("", text).strip()
+
+
 def extract_json(text: str) -> dict[str, Any]:
     """Find the JSON object in a model reply that may wrap it in prose, fences or reasoning."""
-    cleaned = _THINKING.sub("", text)
+    cleaned = strip_reasoning(text)
     decoder = json.JSONDecoder()
     position = cleaned.find("{")
     while position != -1:

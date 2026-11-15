@@ -1,13 +1,18 @@
 """LangGraph wiring: nodes, edges and routing functions.
 
     guardrail -> (refused: END) -> intent -> entities -> (refused: END) -> retrieve_schema
-        -> generate_sql -> validate_sql -> execute -> answer -> END
+        -> generate_sql -> validate_sql -> execute -> answer -> check_answer -> END
 
 The guardrail refuses what is out of scope; entities refuses a company that is not in the data.
 
 A query that fails validation or execution goes to repair_sql and back to validate_sql, at most
 `MAX_REPAIRS` times; after that the answer node reports the failure. The limit is checked before
 a repair is made, so every repaired query is validated and none is thrown away unused.
+
+An answer the model wrote goes to check_answer. If it holds a number the rows do not support,
+the answer node writes it again, at most `MAX_ANSWER_ATTEMPTS` answers in all; after that
+fallback_answer replaces it with a neutral sentence. The answer node's fixed sentences (failed
+query, no rows) are not checked.
 
 No node logic lives here: routing functions only read the state.
 """
@@ -20,8 +25,10 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.agent.nodes.answer import answer
+from app.agent.nodes.check_answer import check_answer
 from app.agent.nodes.entities import entities
 from app.agent.nodes.execute import execute
+from app.agent.nodes.fallback_answer import fallback_answer
 from app.agent.nodes.generate_sql import generate_sql
 from app.agent.nodes.guardrail import guardrail
 from app.agent.nodes.intent import intent
@@ -31,6 +38,7 @@ from app.agent.nodes.validate_sql import validate_sql
 from app.agent.state import AgentState
 
 MAX_REPAIRS = 2
+MAX_ANSWER_ATTEMPTS = 2  # the first answer and one regeneration
 
 Node = Callable[[AgentState], dict[str, Any]]
 
@@ -44,6 +52,8 @@ NODES: dict[str, Node] = {
     "execute": execute,
     "repair_sql": repair_sql,
     "answer": answer,
+    "check_answer": check_answer,
+    "fallback_answer": fallback_answer,
 }
 
 
@@ -71,6 +81,20 @@ def route_after_execute(state: AgentState) -> str:
     return _repair_or_give_up(state) if state.get("db_error") else "answer"
 
 
+def route_after_answer(state: AgentState) -> str:
+    """An answer the model wrote is checked; the fixed sentences end the run."""
+    failed = state.get("validation_error") or state.get("db_error")
+    return END if failed or not state.get("rows") else "check_answer"
+
+
+def route_after_check_answer(state: AgentState) -> str:
+    """A faithful answer ends the run; otherwise one more answer, then the neutral sentence."""
+    if not state.get("unsupported_numbers"):
+        return END
+    more = state.get("answer_attempts", 0) < MAX_ANSWER_ATTEMPTS
+    return "answer" if more else "fallback_answer"
+
+
 def build_graph(overrides: dict[str, Node] | None = None) -> CompiledStateGraph:
     """Wire the agent. `overrides` replaces nodes by name; it exists for tests, to force a route.
 
@@ -94,7 +118,11 @@ def build_graph(overrides: dict[str, Node] | None = None) -> CompiledStateGraph:
     )
     graph.add_conditional_edges("execute", route_after_execute, ["answer", "repair_sql"])
     graph.add_edge("repair_sql", "validate_sql")
-    graph.add_edge("answer", END)
+    graph.add_conditional_edges("answer", route_after_answer, ["check_answer", END])
+    graph.add_conditional_edges(
+        "check_answer", route_after_check_answer, ["answer", "fallback_answer", END]
+    )
+    graph.add_edge("fallback_answer", END)
     return graph.compile()
 
 
@@ -105,7 +133,7 @@ def _default_graph() -> CompiledStateGraph:
 
 def initial_state(question: str) -> AgentState:
     """The state a run starts from."""
-    return {"question": question, "attempts": 0, "trace": []}
+    return {"question": question, "attempts": 0, "answer_attempts": 0, "trace": []}
 
 
 def run_agent(question: str) -> AgentState:

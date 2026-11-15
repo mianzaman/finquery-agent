@@ -1,7 +1,8 @@
 """Runs the evaluation set against the baseline or the agent.
 
 Run with `uv run python -m evals.run_eval --system baseline [--ids q001,q002] [--limit N]
-[--resume] [--max-requests 40] [--questions PATH]`.
+[--resume] [--max-requests 40] [--questions PATH]`, or with `--compare` to print the latest
+saved baseline and agent runs side by side (no model call).
 
 How a question is scored
 ------------------------
@@ -11,6 +12,9 @@ How a question is scored
   column is found among them. The number of rows must be the same.
 - An `out_of_scope` question passes only if the system refuses. An in-scope question that is
   refused fails.
+- Faithfulness is the agent's own check of its text answer against its rows (every number in
+  the answer is in the rows). It is counted over the answers that were checked, and says
+  nothing about whether the SQL was right. The baseline writes no text answer, so it has none.
 
 Budget
 ------
@@ -299,6 +303,10 @@ def score(
         "system_row_count": len(result.get("rows", [])),
         "gold_sample": _sample(gold_rows),
         "system_sample": _sample(result.get("rows", [])),
+        "answer": result.get("answer"),
+        "faithfulness": result.get("faithfulness"),
+        "attempts": result.get("attempts", 0),
+        "answer_attempts": result.get("answer_attempts", 0),
         "latency_ms": result.get("latency_ms", 0),
         "tokens": result.get("tokens", 0),
         "requests": result.get("requests", 0),
@@ -325,6 +333,9 @@ def summarize(entries: list[dict[str, Any]]) -> dict[str, Any]:
     out_of_scope = [e for e in entries if e["category"] == OUT_OF_SCOPE]
     latencies = [float(e["latency_ms"]) for e in entries]
     costs = [e["cost_usd"] for e in entries]
+    # Entries carried over from a file written before these keys existed do not have them.
+    checked = [e for e in entries if e.get("faithfulness") is not None]
+    repaired = [e for e in in_scope if e.get("attempts", 0) > 0]
     return {
         "questions": len(entries),
         "passed": sum(bool(e["passed"]) for e in entries),
@@ -332,6 +343,11 @@ def summarize(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "execution_accuracy": _rate(in_scope),
         "valid_sql_rate": _rate(in_scope, "valid_sql"),
         "refusal_accuracy": _rate(out_of_scope),
+        "answers_checked": len(checked),
+        "faithfulness_rate": _rate(checked, "faithfulness"),
+        "repairs": sum(e.get("attempts", 0) for e in in_scope),
+        "questions_repaired": len(repaired),
+        "repair_success": _rate(repaired, "valid_sql"),
         "by_category": {
             category: {
                 "questions": len(group),
@@ -363,25 +379,66 @@ def _number(value: float | None, unit: str = "") -> str:
     return "n/a" if value is None else f"{value:,.0f}{unit}"
 
 
+def metric_rows(summary: dict[str, Any]) -> list[tuple[str, str]]:
+    """The summary as (metric, value) pairs. A summary saved by an older version still works."""
+    cost = summary["cost_usd"]
+    checked = summary.get("answers_checked", 0)
+    repaired = summary.get("questions_repaired", 0)
+    faithfulness = f"{_percent(summary.get('faithfulness_rate'))} ({checked} answers checked)"
+    repairs = f"{summary.get('repairs', 0)} on {repaired} questions"
+    if repaired:
+        repairs += f" ({_percent(summary.get('repair_success'))} then ran)"
+    return [
+        ("Questions", f"{summary['questions']} ({summary['passed']} passed)"),
+        ("Execution accuracy (answerable)", _percent(summary["execution_accuracy"])),
+        ("Refusal accuracy (out of scope)", _percent(summary["refusal_accuracy"])),
+        ("Overall accuracy", _percent(summary["overall_accuracy"])),
+        ("Valid SQL rate", _percent(summary["valid_sql_rate"])),
+        ("Faithfulness (answer numbers in rows)", faithfulness if checked else "n/a"),
+        ("Repairs", repairs),
+        (
+            "Latency p50 / p95",
+            f"{_number(summary['latency_ms_p50'], ' ms')} / "
+            f"{_number(summary['latency_ms_p95'], ' ms')}",
+        ),
+        ("Average tokens per question", _number(summary["average_tokens"])),
+        ("Model requests", f"{summary['requests']} (+{summary['cached_replies']} from cache)"),
+        ("Estimated cost", "unknown" if cost is None else f"${cost:.4f}"),
+    ]
+
+
+def markdown_comparison(runs: list[dict[str, Any]]) -> str:
+    """Saved runs side by side, one column each, with the file every number comes from."""
+    columns = [metric_rows(run["summary"]) for run in runs]
+    header = " | ".join(run["system"] for run in runs)
+    lines = [
+        "## Eval comparison",
+        "",
+        f"| Metric | {header} |",
+        "| --- |" + " --- |" * len(runs),
+        f"| Results file | {' | '.join(run.get('file', 'unknown') for run in runs)} |",
+        f"| Model | {' | '.join(run['model'] or 'no model' for run in runs)} |",
+    ]
+    for index, (metric, _) in enumerate(columns[0]):
+        lines.append(f"| {metric} | {' | '.join(column[index][1] for column in columns)} |")
+    partial = [run["system"] for run in runs if not run["complete"]]
+    if partial:
+        lines += ["", f"**Not a full run:** {', '.join(partial)} stopped early."]
+    sizes = {run["summary"]["questions"] for run in runs}
+    if len(sizes) > 1:
+        lines += ["", "**The runs cover different numbers of questions; compare with care.**"]
+    return "\n".join(lines)
+
+
 def markdown_summary(run: dict[str, Any]) -> str:
     """The run as Markdown tables, for the terminal and for pasting into notes."""
     summary = run["summary"]
-    cost = summary["cost_usd"]
     lines = [
         f"## Eval: {run['system']} ({run['model'] or 'no model'}, {run['finished_at']})",
         "",
         "| Metric | Value |",
         "| --- | --- |",
-        f"| Questions | {summary['questions']} ({summary['passed']} passed) |",
-        f"| Execution accuracy (answerable) | {_percent(summary['execution_accuracy'])} |",
-        f"| Refusal accuracy (out of scope) | {_percent(summary['refusal_accuracy'])} |",
-        f"| Overall accuracy | {_percent(summary['overall_accuracy'])} |",
-        f"| Valid SQL rate | {_percent(summary['valid_sql_rate'])} |",
-        f"| Latency p50 / p95 | {_number(summary['latency_ms_p50'], ' ms')} / "
-        f"{_number(summary['latency_ms_p95'], ' ms')} |",
-        f"| Average tokens per question | {_number(summary['average_tokens'])} |",
-        f"| Model requests | {summary['requests']} (+{summary['cached_replies']} from cache) |",
-        f"| Estimated cost | {'unknown' if cost is None else f'${cost:.4f}'} |",
+        *(f"| {metric} | {value} |" for metric, value in metric_rows(summary)),
         "",
         "| Category | Passed | Accuracy |",
         "| --- | --- | --- |",
@@ -406,6 +463,17 @@ def latest_results(results_dir: Path, system: str) -> Path | None:
     """The newest results file of a system (the names sort by time)."""
     files = sorted(results_dir.glob(f"*_{system}.json"))
     return files[-1] if files else None
+
+
+def compare_latest(results_dir: Path, systems: Sequence[str] = ("baseline", "agent")) -> str:
+    """The comparison table of each system's newest results file."""
+    runs: list[dict[str, Any]] = []
+    for system in systems:
+        path = latest_results(results_dir, system)
+        if path is None:
+            raise EvalError(f"--compare: no {system} results in {results_dir}")
+        runs.append(json.loads(path.read_text(encoding="utf-8")) | {"file": path.name})
+    return markdown_comparison(runs)
 
 
 def results_path(results_dir: Path, system: str, now: datetime) -> Path:
@@ -463,6 +531,8 @@ def agent_answer(question: str) -> dict[str, Any]:
             # a failure with its cause, so the run goes on and its results are still saved.
             error = f"agent failed: {type(exc).__name__}: {str(exc).splitlines()[0][:200]}"
     refused = bool(state.get("refused"))
+    # The check ran if it left its list; its verdict is "no fallback was needed".
+    checked = "unsupported_numbers" in state
     if error is None and not refused:
         failure = state.get("validation_error") or state.get("db_error")
         error = f"query: {failure}" if failure else None
@@ -474,6 +544,9 @@ def agent_answer(question: str) -> dict[str, Any]:
         "truncated": False,
         "error": error,
         "answer": state.get("answer"),
+        "faithfulness": not state.get("faithfulness_failed", False) if checked else None,
+        "attempts": state.get("attempts", 0),
+        "answer_attempts": state.get("answer_attempts", 0),
         "trace": state.get("trace", []),
         "latency_ms": round((clock.perf_counter() - started) * 1000),
         "tokens": usage.total_tokens,
@@ -519,7 +592,10 @@ def evaluate(
 def main(argv: list[str] | None = None) -> int:
     """Command-line entry point. Exit code 0: finished; 1: could not run; 2: stopped early."""
     parser = argparse.ArgumentParser(description="Score a system against the gold SQL.")
-    parser.add_argument("--system", choices=("baseline", "agent"), required=True)
+    parser.add_argument("--system", choices=("baseline", "agent"))
+    parser.add_argument(
+        "--compare", action="store_true", help="print the latest baseline and agent runs"
+    )
     parser.add_argument("--ids", help="comma-separated question ids to run")
     parser.add_argument("--limit", type=int, help="run at most this many questions")
     parser.add_argument("--resume", action="store_true", help="continue the latest run")
@@ -527,6 +603,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--questions", type=Path, default=QUESTIONS_PATH)
     parser.add_argument("--results-dir", type=Path, default=RESULTS_DIR)
     args = parser.parse_args(argv)
+    if args.compare:
+        try:
+            print(compare_latest(args.results_dir))
+        except EvalError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        return 0
+    if args.system is None:
+        parser.error("--system is required (or use --compare)")
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
     logging.getLogger("httpx").setLevel(logging.WARNING)
 

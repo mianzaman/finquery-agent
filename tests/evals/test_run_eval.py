@@ -18,6 +18,7 @@ from evals.run_eval import (
     latest_results,
     load_questions,
     main,
+    markdown_comparison,
     markdown_summary,
     percentile,
     results_path,
@@ -299,6 +300,64 @@ def test_summary_metrics() -> None:
     assert summary["cached_replies"] == 1
     assert summary["cost_usd"] == pytest.approx(0.01)
     assert summary["gold_errors"] == []
+    # None of these entries has a checked answer or a repair.
+    assert (summary["answers_checked"], summary["faithfulness_rate"]) == (0, None)
+    assert (summary["repairs"], summary["questions_repaired"]) == (0, 0)
+    assert summary["repair_success"] is None
+
+
+def agent_entries() -> list[dict[str, Any]]:
+    faithful = ANSWERED | {"answer": "One.", "faithfulness": True, "answer_attempts": 1}
+    regenerated = faithful | {"answer_attempts": 2, "attempts": 1}
+    fallback = ANSWERED | {"faithfulness": False, "answer_attempts": 2}
+    gave_up = result(sql="SELECT x", error="query: no column x", attempts=2)
+    return [
+        score(question("lookup", "q1"), faithful, [(1,)], None),
+        score(question("lookup", "q2"), regenerated, [(1,)], None),
+        score(question("trend", "q3"), fallback, [(1,)], None),
+        score(question("trend", "q4"), gave_up, [(1,)], None),
+        score(question("out_of_scope", "q5"), REFUSED, [], None),
+    ]
+
+
+def test_an_entry_keeps_the_answer_its_check_and_the_attempts() -> None:
+    first, second, third, fourth, refused = agent_entries()
+
+    assert (first["answer"], first["faithfulness"]) == ("One.", True)
+    assert (first["attempts"], first["answer_attempts"]) == (0, 1)
+    assert (second["attempts"], second["answer_attempts"]) == (1, 2)
+    assert third["faithfulness"] is False
+    assert (fourth["faithfulness"], fourth["attempts"], fourth["answer"]) == (None, 2, None)
+    assert (refused["faithfulness"], refused["attempts"], refused["answer_attempts"]) == (
+        None,
+        0,
+        0,
+    )
+
+
+def test_summary_counts_faithfulness_and_repairs() -> None:
+    summary = summarize(agent_entries())
+
+    assert summary["answers_checked"] == 3
+    assert summary["faithfulness_rate"] == pytest.approx(2 / 3)
+    assert (summary["repairs"], summary["questions_repaired"]) == (3, 2)
+    assert summary["repair_success"] == pytest.approx(1 / 2)  # q2 ran after its repair, q4 never
+
+
+def test_entries_saved_before_these_metrics_existed_still_summarize() -> None:
+    old_keys = ("answer", "faithfulness", "attempts", "answer_attempts")
+    old = [{k: v for k, v in entry.items() if k not in old_keys} for entry in entries()]
+
+    summary = summarize(old)
+
+    assert (summary["questions"], summary["answers_checked"], summary["repairs"]) == (5, 0, 0)
+    for key in ("answers_checked", "faithfulness_rate", "repairs", "questions_repaired"):
+        del summary[key]
+    del summary["repair_success"]
+    run = {"system": "baseline", "model": None, "finished_at": "now", "complete": True}
+    text = markdown_summary(run | {"summary": summary, "questions": old})
+    assert "| Faithfulness (answer numbers in rows) | n/a |" in text
+    assert "| Repairs | 0 on 0 questions |" in text
 
 
 def test_summary_of_nothing_and_of_unknown_cost() -> None:
@@ -336,7 +395,40 @@ def test_markdown_summary_shows_rates_categories_and_failures() -> None:
     assert "| q5 | out_of_scope | should have refused |" in text
     assert "| Estimated cost | $0.0100 |" in text
     assert "| Model requests | 5 (+1 from cache) |" in text
+    assert "| Faithfulness (answer numbers in rows) | n/a |" in text
+    assert "| Repairs | 0 on 0 questions |" in text
     assert "**Stopped early:** limit reached" in text
+
+
+def saved_run(system: str, scored: list[dict[str, Any]], **values: Any) -> dict[str, Any]:
+    run = {"system": system, "model": "vendor/model:free", "finished_at": "now", "complete": True}
+    return run | {"summary": summarize(scored), "questions": scored} | values
+
+
+def test_markdown_summary_shows_faithfulness_and_repairs() -> None:
+    text = markdown_summary(saved_run("agent", agent_entries()))
+
+    assert "| Faithfulness (answer numbers in rows) | 66.7% (3 answers checked) |" in text
+    assert "| Repairs | 3 on 2 questions (50.0% then ran) |" in text
+
+
+def test_markdown_comparison_puts_the_runs_side_by_side() -> None:
+    baseline = saved_run("baseline", entries(), file="a_baseline.json", complete=False)
+    agent = saved_run("agent", agent_entries(), file="b_agent.json")
+
+    text = markdown_comparison([baseline, agent])
+
+    assert "| Metric | baseline | agent |" in text
+    assert "| --- | --- | --- |" in text
+    assert "| Results file | a_baseline.json | b_agent.json |" in text
+    assert "| Execution accuracy (answerable) | 33.3% | 75.0% |" in text
+    assert "| Faithfulness (answer numbers in rows) | n/a | 66.7% (3 answers checked) |" in text
+    assert "| Repairs | 0 on 0 questions | 3 on 2 questions (50.0% then ran) |" in text
+    assert "**Not a full run:** baseline stopped early." in text
+    assert "different numbers of questions" not in text  # both have 5
+
+    shorter = saved_run("agent", agent_entries()[:2], file="c_agent.json")
+    assert "different numbers of questions" in markdown_comparison([baseline, shorter])
 
 
 # --- Questions file ---------------------------------------------------------------------------
@@ -490,6 +582,34 @@ def test_main_runs_saves_and_prints(harness: dict[str, Any], capsys: pytest.Capt
     assert "_baseline.json" in output
 
 
+def test_main_compare_prints_the_latest_run_of_each_system_without_running_anything(
+    harness: dict[str, Any], capsys: pytest.CaptureFixture
+) -> None:
+    compare = ["--compare", "--results-dir", str(harness["results"])]
+    assert main(compare) == 1
+    assert "--compare: no baseline results" in capsys.readouterr().err
+
+    assert main(harness["args"]) == 0
+    assert main(["--system", "agent", *harness["args"][2:], "--max-requests", "9"]) == 0
+    asked = len(harness["asked"])
+    capsys.readouterr()
+
+    assert main(compare) == 0
+
+    output = capsys.readouterr().out
+    assert "| Metric | baseline | agent |" in output
+    assert "_baseline.json | " in output and "_agent.json |" in output
+    assert "| Questions | 3 (2 passed) | 3 (2 passed) |" in output
+    assert len(harness["asked"]) == asked  # nothing was asked again
+    assert len(saved_runs(harness)) == 2  # and nothing was written
+
+
+def test_main_needs_a_system_unless_comparing(capsys: pytest.CaptureFixture) -> None:
+    with pytest.raises(SystemExit):
+        main([])
+    assert "--system is required (or use --compare)" in capsys.readouterr().err
+
+
 def test_main_stops_at_a_rate_limit_and_resumes_into_a_new_file(
     harness: dict[str, Any], capsys: pytest.CaptureFixture
 ) -> None:
@@ -577,7 +697,45 @@ def agent_state(**values: Any) -> dict[str, Any]:
         ),
         (
             agent_state(refused=False, sql="DROP x", validation_error="only SELECT", attempts=2),
-            {"sql": "DROP x", "refusal": None, "error": "query: only SELECT"},
+            {
+                "sql": "DROP x",
+                "refusal": None,
+                "error": "query: only SELECT",
+                "faithfulness": None,
+                "attempts": 2,
+                "answer_attempts": 0,
+            },
+        ),
+        (
+            # The check ran and no fallback was needed: faithful, even after a regeneration.
+            agent_state(
+                refused=False,
+                sql="SELECT 1",
+                rows=[(1,)],
+                answer="One.",
+                answer_attempts=2,
+                unsupported_numbers=[],
+                faithfulness_failed=False,
+                attempts=1,
+            ),
+            {"faithfulness": True, "attempts": 1, "answer_attempts": 2, "error": None},
+        ),
+        (
+            agent_state(
+                refused=False,
+                sql="SELECT 1",
+                rows=[(1,)],
+                answer="The query returned 1 row; the figures are in the table.",
+                answer_attempts=2,
+                unsupported_numbers=["$9"],
+                faithfulness_failed=True,
+            ),
+            {"faithfulness": False, "answer_attempts": 2, "error": None},
+        ),
+        (
+            # A fixed sentence (no rows) is never checked, so it has no verdict.
+            agent_state(refused=False, sql="SELECT 1", rows=[], answer="No data was found."),
+            {"faithfulness": None, "answer_attempts": 0},
         ),
         (
             agent_state(refused=False, sql="SELECT x", db_error="column x does not exist"),

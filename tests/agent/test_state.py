@@ -10,6 +10,8 @@ SPEC_KEYS = {
     "examples", "sql", "validation_error", "db_error", "rows", "columns", "attempts", "answer",
     "trace",
     "company_mentions",  # added in Task 07: the guardrail's list, resolved by entities
+    # added in Task 10: the faithfulness check and its one regeneration
+    "answer_attempts", "unsupported_numbers", "faithfulness_failed",
 }  # fmt: skip
 
 

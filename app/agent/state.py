@@ -43,8 +43,11 @@ class AgentState(TypedDict, total=False):
     columns: list[str]
     attempts: int  # repairs made so far
 
-    # answer
+    # answer, check_answer, fallback_answer
     answer: str
+    answer_attempts: int  # answers the model has written so far
+    unsupported_numbers: list[str]  # numbers in the answer that are not in the rows
+    faithfulness_failed: bool  # the model's answers were dropped for the neutral sentence
 
     # Appended to, never replaced: a node returns a list holding only its own event.
     trace: Annotated[list[TraceEvent], operator.add]

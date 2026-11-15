@@ -161,6 +161,19 @@ def test_other_failures_are_reported_without_the_providers_text(
 
 
 @pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("<think>Is it 5?\nYes.</think>\n  It was 5.  ", "It was 5."),
+        ("<THINK>a</THINK>One.<think>b</think> Two.", "One. Two."),
+        ("  No reasoning here. ", "No reasoning here."),
+        ("", ""),
+    ],
+)
+def test_strip_reasoning(text: str, expected: str) -> None:
+    assert llm.strip_reasoning(text) == expected
+
+
+@pytest.mark.parametrize(
     "text",
     [
         '{"sql": "SELECT 1", "confidence": 3}',

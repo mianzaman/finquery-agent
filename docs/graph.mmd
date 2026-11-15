@@ -14,8 +14,15 @@ graph TD;
 	execute(execute)
 	repair_sql(repair_sql)
 	answer(answer)
+	check_answer(check_answer)
+	fallback_answer(fallback_answer)
 	__end__([<p>__end__</p>]):::last
 	__start__ --> guardrail;
+	answer -.-> __end__;
+	answer -.-> check_answer;
+	check_answer -.-> __end__;
+	check_answer -.-> answer;
+	check_answer -.-> fallback_answer;
 	entities -.-> __end__;
 	entities -.-> retrieve_schema;
 	execute -.-> answer;
@@ -29,7 +36,7 @@ graph TD;
 	validate_sql -.-> answer;
 	validate_sql -.-> execute;
 	validate_sql -.-> repair_sql;
-	answer --> __end__;
+	fallback_answer --> __end__;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0
 	classDef last fill:#bfb6fc

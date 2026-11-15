@@ -7,10 +7,13 @@ import pytest
 from langgraph.graph import END
 
 from app.agent.graph import (
+    MAX_ANSWER_ATTEMPTS,
     MAX_REPAIRS,
     NODES,
     build_graph,
     initial_state,
+    route_after_answer,
+    route_after_check_answer,
     route_after_entities,
     route_after_execute,
     route_after_guardrail,
@@ -29,6 +32,7 @@ TO_VALIDATION = [
     "validate_sql",
 ]
 REPAIR = ["repair_sql", "validate_sql"]
+ANSWERED = ["answer", "check_answer"]
 
 
 def fake(name: str, *updates: dict[str, Any]) -> Any:
@@ -68,6 +72,21 @@ def fake_repair(state: AgentState) -> dict[str, Any]:
     }
 
 
+def fake_answer(state: AgentState) -> dict[str, Any]:
+    """The real node's fixed sentences (they need no model); otherwise an answer from the rows."""
+    if state.get("validation_error") or state.get("db_error") or not state.get("rows"):
+        return NODES["answer"](state)
+    return {
+        "answer": "The value was 1.",
+        "answer_attempts": state.get("answer_attempts", 0) + 1,
+        "trace": trace_event("answer", 0.0, "fake"),
+    }
+
+
+FAITHFUL = {"unsupported_numbers": [], "faithfulness_failed": False}
+UNFAITHFUL = {"unsupported_numbers": ["$9 billion"], "faithfulness_failed": False}
+
+
 def run(**overrides: Any) -> AgentState:
     """Run the graph with every model-backed and database-backed node replaced by a fake."""
     front = {
@@ -78,6 +97,8 @@ def run(**overrides: Any) -> AgentState:
         "validate_sql": fake("validate_sql", VALID),
         "execute": fake("execute", DB_OK),
         "repair_sql": fake_repair,
+        "answer": fake_answer,
+        "check_answer": fake("check_answer", FAITHFUL),
     }
     return build_graph(front | overrides).invoke(initial_state("What was Apple's revenue?"))
 
@@ -85,28 +106,29 @@ def run(**overrides: Any) -> AgentState:
 def test_happy_path_visits_every_node_in_order() -> None:
     state = run()
 
-    assert visited(state) == [*TO_VALIDATION, "execute", "answer"]
+    assert visited(state) == [*TO_VALIDATION, "execute", *ANSWERED]
     assert state["question"] == "What was Apple's revenue?"
     assert (state["refused"], state["attempts"]) == (False, 0)
     assert (state["intent"], state["tickers"]) == ("trend", ["AAPL"])
     assert (state["sql"], state["validation_error"], state["db_error"]) == ("SELECT 1", None, None)
-    assert state["answer"] == "Stub answer: the query returned 1 rows."
+    assert (state["answer"], state["answer_attempts"]) == ("The value was 1.", 1)
+    assert (state["unsupported_numbers"], state["faithfulness_failed"]) == ([], False)
 
 
 def test_a_validation_failure_is_repaired_once_and_then_succeeds() -> None:
     state = run(validate_sql=fake("validate_sql", INVALID, VALID))
 
-    assert visited(state) == [*TO_VALIDATION, *REPAIR, "execute", "answer"]
+    assert visited(state) == [*TO_VALIDATION, *REPAIR, "execute", *ANSWERED]
     assert state["attempts"] == 1
-    assert state["answer"].startswith("Stub answer")
+    assert state["answer"] == "The value was 1."
 
 
 def test_a_database_error_is_repaired_and_validated_again() -> None:
     state = run(execute=fake("execute", DB_ERROR, DB_OK))
 
-    assert visited(state) == [*TO_VALIDATION, "execute", *REPAIR, "execute", "answer"]
+    assert visited(state) == [*TO_VALIDATION, "execute", *REPAIR, "execute", *ANSWERED]
     assert (state["attempts"], state["db_error"]) == (1, None)
-    assert state["answer"].startswith("Stub answer")
+    assert state["answer"] == "The value was 1."
 
 
 def test_repeated_validation_failures_stop_after_two_repairs() -> None:
@@ -146,6 +168,82 @@ def test_repairs_are_shared_between_validation_and_database_failures() -> None:
     # One repair for the invalid SQL, one for the first database error, then it gives up.
     assert visited(state) == [*TO_VALIDATION, *REPAIR, "execute", *REPAIR, "execute", "answer"]
     assert state["attempts"] == 2
+
+
+def test_an_unfaithful_answer_is_written_again_once() -> None:
+    state = run(check_answer=fake("check_answer", UNFAITHFUL, FAITHFUL))
+
+    assert visited(state) == [*TO_VALIDATION, "execute", *ANSWERED, *ANSWERED]
+    assert state["answer_attempts"] == 2
+    assert (state["answer"], state["faithfulness_failed"]) == ("The value was 1.", False)
+
+
+def test_two_unfaithful_answers_end_in_the_neutral_sentence() -> None:
+    state = run(check_answer=fake("check_answer", UNFAITHFUL))
+
+    assert visited(state) == [*TO_VALIDATION, "execute", *ANSWERED, *ANSWERED, "fallback_answer"]
+    assert state["answer_attempts"] == MAX_ANSWER_ATTEMPTS == 2
+    assert state["answer"] == "The query returned 1 row; the figures are in the table."
+    assert state["faithfulness_failed"] is True
+    assert state["rows"] == [(1,)]  # the rows are still returned
+
+
+@pytest.fixture
+def reference_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fixture companies behind the real answer and check nodes, so they need no database."""
+    from datetime import date
+
+    from app.agent.nodes import generate_sql as generate_module
+    from tests.agent.fixtures import COMPANIES
+
+    monkeypatch.setattr(generate_module.reference, "companies", lambda: COMPANIES)
+    monkeypatch.setattr(
+        generate_module.reference, "data_range", lambda: (date(2021, 1, 2), date(2026, 11, 13))
+    )
+
+
+def test_the_fixed_sentences_are_not_checked(reference_data: None) -> None:
+    empty = run(execute=fake("execute", DB_OK | {"rows": []}))
+    failed = run(validate_sql=fake("validate_sql", INVALID))
+
+    for state in (empty, failed):
+        assert visited(state)[-1] == "answer"
+        assert "unsupported_numbers" not in state and "faithfulness_failed" not in state
+    assert empty["answer"] == "No data was found for AAPL (Apple): the query returned no rows."
+
+
+def test_the_real_check_sends_an_invented_number_back_to_the_model(
+    reference_data: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real answer, check and fallback nodes with a scripted model."""
+    from langchain_core.messages import AIMessage, BaseMessage
+
+    from app import llm
+    from app.agent.nodes import answer as answer_module
+    from tests.fakes import ScriptedChat, reply
+
+    rows = {"db_error": None, "columns": ["revenue"], "rows": [(416161000000,)]}
+    real = {name: NODES[name] for name in ("answer", "check_answer", "fallback_answer")}
+
+    def run_with(*answers: str) -> tuple[AgentState, ScriptedChat]:
+        model = ScriptedChat(replies=[reply(text) for text in answers])
+
+        def invoke(messages: list[BaseMessage]) -> AIMessage:
+            return llm.invoke(messages, model=model)
+
+        monkeypatch.setattr(answer_module, "invoke", invoke)
+        return run(execute=fake("execute", rows), **real), model
+
+    state, model = run_with("Revenue was $500 billion.", "Revenue was $416.2 billion.")
+    assert visited(state) == [*TO_VALIDATION, "execute", *ANSWERED, *ANSWERED]
+    assert (state["answer"], state["faithfulness_failed"]) == ("Revenue was $416.2 billion.", False)
+    assert "these numbers are not in the result: $500 billion." in model.seen[1][0].content
+
+    state, model = run_with("Revenue was $500 billion.", "Revenue was $501 billion.")
+    assert visited(state)[-3:] == [*ANSWERED, "fallback_answer"]
+    assert state["answer"] == "The query returned 1 row; the figures are in the table."
+    assert (state["faithfulness_failed"], state["unsupported_numbers"]) == (True, ["$501 billion"])
+    assert len(model.seen) == 2  # never a third answer
 
 
 def test_a_refused_question_ends_after_the_guardrail() -> None:
@@ -246,10 +344,48 @@ def test_route_after_execute(state: AgentState, expected: str) -> None:
     assert route_after_execute(state) == expected
 
 
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ({"rows": [(1,)]}, "check_answer"),
+        ({"rows": [(1,)], "validation_error": None, "db_error": None}, "check_answer"),
+        ({"rows": []}, END),
+        ({}, END),
+        ({"rows": [(1,)], "db_error": "boom"}, END),
+        ({"rows": [(1,)], "validation_error": "bad"}, END),
+    ],
+)
+def test_route_after_answer(state: AgentState, expected: str) -> None:
+    assert route_after_answer(state) == expected
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ({"unsupported_numbers": []}, END),
+        ({}, END),
+        ({"unsupported_numbers": [], "answer_attempts": 1}, END),
+        ({"unsupported_numbers": ["5%"], "answer_attempts": 1}, "answer"),
+        ({"unsupported_numbers": ["5%"]}, "answer"),
+        ({"unsupported_numbers": ["5%"], "answer_attempts": 2}, "fallback_answer"),
+        ({"unsupported_numbers": ["5%"], "answer_attempts": 3}, "fallback_answer"),
+    ],
+)
+def test_route_after_check_answer(state: AgentState, expected: str) -> None:
+    assert route_after_check_answer(state) == expected
+
+
 def test_only_known_nodes_can_be_replaced() -> None:
     with pytest.raises(ValueError, match="no such nodes: summarise"):
         build_graph({"summarise": fake("summarise", {})})
-    assert list(NODES) == [*TO_VALIDATION, "execute", "repair_sql", "answer"]
+    assert list(NODES) == [
+        *TO_VALIDATION,
+        "execute",
+        "repair_sql",
+        "answer",
+        "check_answer",
+        "fallback_answer",
+    ]
 
 
 def test_the_saved_diagram_matches_the_graph() -> None:
@@ -289,7 +425,7 @@ def test_broken_sql_from_the_model_is_repaired_in_one_attempt(
 
     state = run(**real)
 
-    assert visited(state) == [*TO_VALIDATION, *REPAIR, "execute", "answer"]
+    assert visited(state) == [*TO_VALIDATION, *REPAIR, "execute", *ANSWERED]
     assert state["attempts"] == 1
     assert state["sql"] == f"{fixed} LIMIT 500"  # what ran is the validated, row-limited text
     assert (state["columns"], state["rows"]) == (["ticker", "name"], [("AAPL", "Apple")])
