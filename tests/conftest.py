@@ -5,6 +5,22 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 
 
+@pytest.fixture(autouse=True)
+def no_real_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test may reach a real model: asking for the configured one fails the test.
+
+    Tests pass a fake model explicitly, or replace the function that would call one.
+    """
+    from app import llm
+
+    def refuse() -> None:
+        raise AssertionError(
+            "a test tried to use the real chat model; pass a fake model or patch the caller"
+        )
+
+    monkeypatch.setattr(llm, "get_chat_model", refuse)
+
+
 @pytest.fixture(scope="session")
 def db() -> None:
     """A migrated database. Tests that use it are skipped when Postgres is unreachable."""

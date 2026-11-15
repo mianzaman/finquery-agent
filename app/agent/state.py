@@ -4,6 +4,9 @@ import operator
 import time
 from typing import Annotated, Any, TypedDict
 
+# The kinds of answerable question; the same names as the eval categories.
+INTENTS = ("lookup", "trend", "comparison", "ranking", "multi_table")
+
 
 class TraceEvent(TypedDict):
     """One node's visit, for the evals and the UI to show what happened."""
@@ -18,12 +21,13 @@ class AgentState(TypedDict, total=False):
 
     question: str
 
-    # guardrail
+    # guardrail (entities can also refuse, when a company is not in the dataset)
     refused: bool
     refusal_reason: str | None
+    company_mentions: list[str]  # company names as the question writes them
 
     # intent and entities
-    intent: str
+    intent: str | None  # one of INTENTS once the intent node has run
     tickers: list[str]
     periods: list[dict[str, Any]]
 

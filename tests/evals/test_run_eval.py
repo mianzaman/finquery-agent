@@ -546,16 +546,91 @@ def test_main_with_an_empty_questions_file(
     assert "has no questions" in capsys.readouterr().err
 
 
-def test_the_agent_system_is_not_built_yet(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
-    questions = write_questions(tmp_path / "q.jsonl", Q1)
-
-    assert (
-        main(["--system", "agent", "--questions", str(questions), "--results-dir", str(tmp_path)])
-        == 1
-    )
-    assert "agent system is not built yet" in capsys.readouterr().err
+def test_an_unknown_system_is_not_built() -> None:
     with pytest.raises(NotImplementedError):
-        run_eval.get_system("agent")
+        run_eval.get_system("oracle")
+
+
+def agent_state(**values: Any) -> dict[str, Any]:
+    return {"question": "q", "attempts": 0, "trace": [{"node": "guardrail"}]} | values
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        (
+            agent_state(refused=True, refusal_reason="That is investment advice."),
+            {"sql": None, "refusal": "That is investment advice.", "rows": [], "error": None},
+        ),
+        (
+            # A refusal by entities can come after SQL-shaped keys exist; it is still a refusal.
+            agent_state(
+                refused=True, refusal_reason="Unknown company.", sql="SELECT 1", rows=[(1,)]
+            ),
+            {"sql": None, "refusal": "Unknown company.", "rows": [], "error": None},
+        ),
+        (
+            agent_state(
+                refused=False, sql="SELECT 1", columns=["value"], rows=[(1,)], answer="One."
+            ),
+            {"sql": "SELECT 1", "refusal": None, "rows": [(1,)], "error": None, "answer": "One."},
+        ),
+        (
+            agent_state(refused=False, sql="DROP x", validation_error="only SELECT", attempts=2),
+            {"sql": "DROP x", "refusal": None, "error": "query: only SELECT"},
+        ),
+        (
+            agent_state(refused=False, sql="SELECT x", db_error="column x does not exist"),
+            {"sql": "SELECT x", "error": "query: column x does not exist"},
+        ),
+    ],
+)
+def test_agent_answer_reports_the_final_state_like_the_baseline(
+    monkeypatch: pytest.MonkeyPatch, state: dict[str, Any], expected: dict[str, Any]
+) -> None:
+    monkeypatch.setattr("app.agent.graph.run_agent", lambda question: state)
+
+    result = run_eval.agent_answer("q")
+
+    assert {key: result[key] for key in expected} == expected
+    assert (result["requests"], result["tokens"], result["truncated"]) == (0, 0, False)
+    assert result["trace"] == [{"node": "guardrail"}]
+    entry = score(
+        question("out_of_scope" if state.get("refused") else "lookup"), result, [(1,)], None
+    )
+    assert entry["refused"] is bool(state.get("refused"))
+
+
+def test_agent_answer_turns_a_model_failure_into_an_error_and_raises_a_rate_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.llm import LLMError
+
+    def fail(kind: type[Exception]) -> Any:
+        def run(question: str) -> dict[str, Any]:
+            raise kind("the model request failed (HTTP 503)")
+
+        return run
+
+    monkeypatch.setattr("app.agent.graph.run_agent", fail(LLMError))
+    result = run_eval.agent_answer("q")
+    assert result["error"] == "model: the model request failed (HTTP 503)"
+    assert (result["sql"], result["refusal"]) == (None, None)
+    assert score(question("out_of_scope"), result, [], None)["passed"] is False  # not a refusal
+
+    monkeypatch.setattr("app.agent.graph.run_agent", fail(RateLimitedError))
+    with pytest.raises(RateLimitedError):
+        run_eval.agent_answer("q")
+
+    # Anything else that breaks the agent is scored as a failure, so a run is not lost.
+    monkeypatch.setattr("app.agent.graph.run_agent", fail(RuntimeError))
+    broken = run_eval.agent_answer("q")
+    assert broken["error"] == "agent failed: RuntimeError: the model request failed (HTTP 503)"
+    assert score(question("out_of_scope"), broken, [], None)["passed"] is False
+
+
+def test_the_agent_system_is_the_graph() -> None:
+    assert run_eval.get_system("agent") is run_eval.agent_answer
 
 
 def test_gold_sql_goes_through_the_same_checks(db: None) -> None:

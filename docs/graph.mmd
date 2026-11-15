@@ -16,7 +16,8 @@ graph TD;
 	answer(answer)
 	__end__([<p>__end__</p>]):::last
 	__start__ --> guardrail;
-	entities --> retrieve_schema;
+	entities -.-> __end__;
+	entities -.-> retrieve_schema;
 	execute -.-> answer;
 	execute -.-> repair_sql;
 	generate_sql --> validate_sql;

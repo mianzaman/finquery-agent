@@ -438,12 +438,59 @@ def git_commit() -> str | None:
 # --- Running ----------------------------------------------------------------------------------
 
 
+def agent_answer(question: str) -> dict[str, Any]:
+    """Run the agent graph on one question and report it in the shape the baseline uses.
+
+    A rate limit is raised, so the run can stop; any other model failure becomes `error`.
+    """
+    import time as clock
+
+    from app.agent.graph import run_agent
+    from app.llm import LLMError, RateLimitedError, track_usage
+
+    started = clock.perf_counter()
+    state: dict[str, Any] = {}
+    error: str | None = None
+    with track_usage() as usage:
+        try:
+            state = dict(run_agent(question))
+        except RateLimitedError:
+            raise
+        except LLMError as exc:
+            error = f"model: {exc}"
+        except Exception as exc:
+            # One question that breaks the agent (database down, a bug in a node) is scored as
+            # a failure with its cause, so the run goes on and its results are still saved.
+            error = f"agent failed: {type(exc).__name__}: {str(exc).splitlines()[0][:200]}"
+    refused = bool(state.get("refused"))
+    if error is None and not refused:
+        failure = state.get("validation_error") or state.get("db_error")
+        error = f"query: {failure}" if failure else None
+    return {
+        "sql": None if refused else state.get("sql"),
+        "refusal": state.get("refusal_reason") if refused else None,
+        "columns": state.get("columns", []),
+        "rows": [] if refused else state.get("rows", []),
+        "truncated": False,
+        "error": error,
+        "answer": state.get("answer"),
+        "trace": state.get("trace", []),
+        "latency_ms": round((clock.perf_counter() - started) * 1000),
+        "tokens": usage.total_tokens,
+        "requests": usage.requests,
+        "cached": usage.cached,
+        "cost_usd": usage.cost_usd,
+    }
+
+
 def get_system(name: str) -> System:
     """The function that answers a question for the named system."""
     if name == "baseline":
         from app.baseline import answer
 
         return answer  # type: ignore[return-value]
+    if name == "agent":
+        return agent_answer
     raise NotImplementedError(f"the {name} system is not built yet")
 
 

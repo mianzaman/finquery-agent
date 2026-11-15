@@ -1,7 +1,9 @@
 """LangGraph wiring: nodes, edges and routing functions.
 
-    guardrail -> (refused: END) -> intent -> entities -> retrieve_schema -> generate_sql
-        -> validate_sql -> execute -> answer -> END
+    guardrail -> (refused: END) -> intent -> entities -> (refused: END) -> retrieve_schema
+        -> generate_sql -> validate_sql -> execute -> answer -> END
+
+The guardrail refuses what is out of scope; entities refuses a company that is not in the data.
 
 A query that fails validation or execution goes to repair_sql and back to validate_sql, at most
 `MAX_REPAIRS` times; after that the answer node reports the failure. The limit is checked before
@@ -50,6 +52,11 @@ def route_after_guardrail(state: AgentState) -> str:
     return END if state.get("refused") else "intent"
 
 
+def route_after_entities(state: AgentState) -> str:
+    """A question about an unknown company ends here; anything else goes on to retrieval."""
+    return END if state.get("refused") else "retrieve_schema"
+
+
 def _repair_or_give_up(state: AgentState) -> str:
     return "repair_sql" if state.get("attempts", 0) < MAX_REPAIRS else "answer"
 
@@ -79,7 +86,7 @@ def build_graph(overrides: dict[str, Node] | None = None) -> CompiledStateGraph:
     graph.add_edge(START, "guardrail")
     graph.add_conditional_edges("guardrail", route_after_guardrail, ["intent", END])
     graph.add_edge("intent", "entities")
-    graph.add_edge("entities", "retrieve_schema")
+    graph.add_conditional_edges("entities", route_after_entities, ["retrieve_schema", END])
     graph.add_edge("retrieve_schema", "generate_sql")
     graph.add_edge("generate_sql", "validate_sql")
     graph.add_conditional_edges(

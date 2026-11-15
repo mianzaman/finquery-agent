@@ -11,6 +11,7 @@ from app.agent.graph import (
     NODES,
     build_graph,
     initial_state,
+    route_after_entities,
     route_after_execute,
     route_after_guardrail,
     route_after_validation,
@@ -51,16 +52,23 @@ DB_ERROR = {"db_error": 'column "nope" does not exist'}
 DB_OK = {"db_error": None, "columns": ["value"], "rows": [(1,)]}
 
 
+ALLOWED = {"refused": False, "refusal_reason": None, "intent": "trend", "company_mentions": []}
+RESOLVED = {"tickers": ["AAPL"], "periods": []}
+
+
 def run(**overrides: Any) -> AgentState:
-    return build_graph(overrides).invoke(initial_state("What was Apple's revenue?"))
+    """Run the graph with the model-backed and database-backed nodes replaced by fakes."""
+    front = {"guardrail": fake("guardrail", ALLOWED), "entities": fake("entities", RESOLVED)}
+    return build_graph(front | overrides).invoke(initial_state("What was Apple's revenue?"))
 
 
 def test_happy_path_visits_every_node_in_order() -> None:
-    state = run_agent("What was Apple's revenue?")
+    state = run()
 
     assert visited(state) == [*TO_VALIDATION, "execute", "answer"]
     assert state["question"] == "What was Apple's revenue?"
     assert (state["refused"], state["attempts"]) == (False, 0)
+    assert (state["intent"], state["tickers"]) == ("trend", ["AAPL"])
     assert (state["sql"], state["validation_error"], state["db_error"]) == ("SELECT 1", None, None)
     assert state["answer"] == "Stub answer: the query returned 1 rows."
 
@@ -130,6 +138,29 @@ def test_a_refused_question_ends_after_the_guardrail() -> None:
     assert "sql" not in state and "answer" not in state
 
 
+def test_an_unknown_company_ends_after_entities() -> None:
+    unknown = {
+        "refused": True,
+        "refusal_reason": 'I could not find "Samsung" among the companies I have data for.',
+        "tickers": [],
+        "periods": [],
+    }
+
+    state = run(entities=fake("entities", unknown))
+
+    assert visited(state) == ["guardrail", "intent", "entities"]
+    assert state["refused"] is True and "Samsung" in state["refusal_reason"]
+    assert "sql" not in state and "answer" not in state
+
+
+def test_run_agent_uses_the_real_nodes(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The pre-check refuses this without a model call, so the real graph can run in a test.
+    state = run_agent("DROP TABLE companies")
+
+    assert visited(state) == ["guardrail"]
+    assert state["refused"] is True
+
+
 def test_the_real_validation_node_stops_unsafe_sql_from_being_executed() -> None:
     state = run(generate_sql=fake("generate_sql", {"sql": "DELETE FROM companies"}))
 
@@ -148,6 +179,18 @@ def test_the_real_validation_node_stops_unsafe_sql_from_being_executed() -> None
 )
 def test_route_after_guardrail(state: AgentState, expected: str) -> None:
     assert route_after_guardrail(state) == expected
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ({"refused": True}, END),
+        ({"refused": False}, "retrieve_schema"),
+        ({}, "retrieve_schema"),
+    ],
+)
+def test_route_after_entities(state: AgentState, expected: str) -> None:
+    assert route_after_entities(state) == expected
 
 
 @pytest.mark.parametrize(

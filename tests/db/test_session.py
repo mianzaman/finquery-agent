@@ -57,6 +57,18 @@ def test_the_timeout_and_read_only_mode_are_set_for_every_query() -> None:
     assert run_select("SHOW transaction_read_only")[1] == [("on",)]
 
 
+def test_an_unreachable_database_is_a_query_error_without_connection_details() -> None:
+    from sqlalchemy import create_engine
+
+    nowhere = create_engine("postgresql+psycopg://nobody:secret_pw@127.0.0.1:1/none")
+
+    with pytest.raises(QueryError) as excinfo:
+        run_select("SELECT 1", engine=nowhere)
+
+    assert str(excinfo.value) == "the database is unreachable"
+    assert "secret_pw" not in str(excinfo.value) and "127.0.0.1" not in str(excinfo.value)
+
+
 def test_the_error_message_is_one_line_without_connection_details() -> None:
     with pytest.raises(QueryError) as excinfo:
         run_select("SELECT nope FROM companies")

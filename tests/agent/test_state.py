@@ -9,6 +9,7 @@ SPEC_KEYS = {
     "question", "refused", "refusal_reason", "intent", "tickers", "periods", "schema_context",
     "examples", "sql", "validation_error", "db_error", "rows", "columns", "attempts", "answer",
     "trace",
+    "company_mentions",  # added in Task 07: the guardrail's list, resolved by entities
 }  # fmt: skip
 
 

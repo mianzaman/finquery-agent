@@ -1,4 +1,7 @@
-"""Tests for the stub nodes of the graph skeleton: each returns only what it owns."""
+"""Tests for the nodes that are still stubs (and validate_sql): each returns only what it owns.
+
+The real nodes (guardrail, intent, entities) have their own test files.
+"""
 
 from typing import Any, get_type_hints
 
@@ -14,9 +17,6 @@ STATE_KEYS = set(get_type_hints(AgentState))
 
 # The keys each node may write, besides `trace`.
 OWNED = {
-    "guardrail": {"refused", "refusal_reason"},
-    "intent": {"intent"},
-    "entities": {"tickers", "periods"},
     "retrieve_schema": {"schema_context", "examples"},
     "generate_sql": {"sql"},
     "validate_sql": {"validation_error"},
@@ -27,7 +27,7 @@ OWNED = {
 STATE: AgentState = {"question": "A question?", "sql": "SELECT 1", "attempts": 0, "trace": []}
 
 
-@pytest.mark.parametrize("name", NODES)
+@pytest.mark.parametrize("name", OWNED)
 def test_a_node_returns_only_its_own_keys_and_one_trace_event(name: str) -> None:
     update = NODES[name](STATE)
 
@@ -37,8 +37,8 @@ def test_a_node_returns_only_its_own_keys_and_one_trace_event(name: str) -> None
     assert "question" not in update  # nodes never rewrite the question
 
 
-def test_every_node_has_an_entry_above() -> None:
-    assert set(OWNED) == set(NODES)
+def test_every_node_is_either_listed_above_or_real() -> None:
+    assert set(OWNED) | {"guardrail", "intent", "entities"} == set(NODES)
 
 
 @pytest.mark.parametrize(

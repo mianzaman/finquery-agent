@@ -4,6 +4,7 @@ from typing import Any
 
 import psycopg
 from sqlalchemy import Engine, create_engine
+from sqlalchemy.exc import OperationalError
 
 from app.config import get_settings
 
@@ -49,7 +50,12 @@ def run_select(
       that holds more than one statement, whatever the SQL parser made of it.
     At most `max_rows` rows are fetched; `truncated` says whether more were available.
     """
-    with (engine or reader_engine).connect() as conn:
+    try:
+        connection = (engine or reader_engine).connect()
+    except OperationalError as exc:
+        # The driver's message can include the connection target; keep it out of the error.
+        raise QueryError("the database is unreachable") from exc
+    with connection as conn:
         raw = conn.connection.driver_connection
         try:
             with raw.cursor() as cursor:
