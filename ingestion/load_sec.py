@@ -89,6 +89,9 @@ KEYS = {
     "balance_sheets": ["ticker", "fiscal_year", "fiscal_quarter"],
     "cash_flows": ["ticker", "fiscal_year", "fiscal_quarter"],
     "companies": ["ticker"],
+    "daily_prices": ["ticker", "trade_date"],
+    "dividends": ["ticker", "ex_date"],
+    "stock_splits": ["ticker", "split_date"],
 }
 
 logger = logging.getLogger(__name__)
@@ -110,6 +113,7 @@ class Period:
     start: date | None
     end: date
     year_start: date
+    filed: date | None = None  # when the 10-Q or 10-K that first reported the quarter was filed
 
 
 @dataclass(frozen=True)
@@ -221,12 +225,12 @@ class SecClient:
         raise SecError(f"gave up on {url} after {MAX_ATTEMPTS} attempts ({problem})")
 
 
-def is_fresh(path: Path, now: datetime) -> bool:
-    """True when a cache file exists and is younger than 7 days."""
+def is_fresh(path: Path, now: datetime, max_age: timedelta = CACHE_MAX_AGE) -> bool:
+    """True when a cache file exists and is younger than `max_age` (7 days for SEC files)."""
     if not path.exists():
         return False
     modified = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
-    return now - modified < CACHE_MAX_AGE
+    return now - modified < max_age
 
 
 def fetch_json(client: SecClient, url: str, cache_path: Path, refresh: bool) -> Any:
@@ -275,7 +279,7 @@ def index_tag(facts: dict[str, Any], tag: str) -> TagFacts:
 
 
 def _filing_period_ends(facts: dict[str, Any], tags: list[str]) -> dict[str, dict[str, Any]]:
-    """For each 10-K and 10-Q, the latest period end among the mapped tags, and its `fy`."""
+    """For each 10-K and 10-Q: the latest period end among the mapped tags, `fy` and filing day."""
     filings: dict[str, dict[str, Any]] = {}
     for tag in tags:
         for fact in _raw_facts(facts, tag)[1]:
@@ -283,8 +287,12 @@ def _filing_period_ends(facts: dict[str, Any], tags: list[str]) -> dict[str, dic
             if kind is None or "accn" not in fact:
                 continue
             end = date.fromisoformat(fact["end"])
-            filing = filings.setdefault(fact["accn"], {"kind": kind, "end": end, "fy": None})
+            filing = filings.setdefault(
+                fact["accn"], {"kind": kind, "end": end, "fy": None, "filed": None}
+            )
             filing["end"] = max(filing["end"], end)
+            if fact.get("filed"):
+                filing["filed"] = date.fromisoformat(fact["filed"])
             if fact.get("fy") is not None:
                 filing["fy"] = int(fact["fy"])
     return filings
@@ -310,6 +318,12 @@ def build_calendar(facts: dict[str, Any], tags: list[str]) -> list[Period]:
     filings = _filing_period_ends(facts, tags).values()
     labels = fiscal_year_labels({f["end"]: f["fy"] for f in filings if f["kind"] == "annual"})
     quarter_ends = sorted({f["end"] for f in filings if f["kind"] == "quarterly"})
+    # The first report for a period end is the one whose values are stored (rule 4).
+    first_filed: dict[date, date] = {}
+    for filing in filings:
+        if filing["filed"] is not None:
+            earliest = min(filing["filed"], first_filed.get(filing["end"], filing["filed"]))
+            first_filed[filing["end"]] = earliest
 
     # Each fiscal year as (label, day after the previous year end, year end or None if open).
     ordered = sorted(labels)
@@ -335,7 +349,8 @@ def build_calendar(facts: dict[str, Any], tags: list[str]) -> list[Period]:
             before = year_start if quarter == 1 else None
             if quarter > 1 and quarter - 1 in ends:
                 before = ends[quarter - 1] + timedelta(days=1)
-            periods.append(Period(label, quarter, before, ends[quarter], year_start))
+            end = ends[quarter]
+            periods.append(Period(label, quarter, before, end, year_start, first_filed.get(end)))
     return periods
 
 
@@ -554,6 +569,7 @@ def build_company(ticker: str, facts: dict[str, Any], mapping: Mapping) -> Compa
                 row["free_cash_flow"] = cash - capex if both else None
             if table == "income_statements":
                 row["period_start"] = period.start
+                row["filed_date"] = period.filed
             row |= {
                 "ticker": ticker,
                 "fiscal_year": period.fiscal_year,

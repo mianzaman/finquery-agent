@@ -108,6 +108,36 @@ def test_calendar_for_calendar_year_company(sample: dict[str, Any]) -> None:
         date(2024, 7, 1),
         date(2024, 10, 1),
     ]
+    # Each quarter carries the day its own 10-Q or 10-K was filed, not a later comparative's.
+    assert [p.filed for p in periods] == [
+        date(2024, 2, 15),
+        date(2024, 5, 1),
+        date(2024, 8, 1),
+        date(2024, 11, 1),
+        date(2025, 2, 15),
+    ]
+
+
+def test_filing_date_is_stored_with_the_income_statement(
+    sample: dict[str, Any], mapping: dict[str, dict[str, list[str]]]
+) -> None:
+    rows = build_company("ZZALFA", sample["ALFA"], mapping).rows
+
+    assert by_quarter(rows["income_statements"], "filed_date")[(2024, 4)] == date(2025, 2, 15)
+    assert "filed_date" not in rows["balance_sheets"][0]
+
+
+def test_a_filing_without_a_date_leaves_the_filing_date_empty() -> None:
+    facts = gaap(
+        Revenues=[
+            fact("2023-12-31", 400, "K23", "10-K", fy=2023, start="2023-01-01"),
+            fact("2024-03-31", 100, "Q1", "10-Q", fy=2024, start="2024-01-01"),
+        ]
+    )
+    for entry in facts["facts"]["us-gaap"]["Revenues"]["units"]["USD"]:
+        entry.pop("filed", None)
+
+    assert [p.filed for p in build_calendar(facts, ["Revenues"])] == [None, None]
 
 
 def test_calendar_keeps_fiscal_year_separate_from_calendar_year(sample: dict[str, Any]) -> None:

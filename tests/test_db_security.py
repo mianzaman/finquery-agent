@@ -14,12 +14,16 @@ DATA_TABLES = [
     "cash_flows",
     "daily_prices",
     "dividends",
+    "stock_splits",
+    "income_statements_split_adjusted",
 ]
 
 FORBIDDEN = [
     "INSERT INTO companies (ticker, name) VALUES ('ZZZZ', 'Nope Inc')",
     "UPDATE companies SET name = 'x'",
     "DELETE FROM companies",
+    "INSERT INTO stock_splits (ticker, split_date, ratio) VALUES ('AAPL', '2020-01-01', 2)",
+    "DROP VIEW income_statements_split_adjusted",
     "TRUNCATE companies CASCADE",
     "DROP TABLE companies CASCADE",
     "ALTER TABLE companies ADD COLUMN evil TEXT",

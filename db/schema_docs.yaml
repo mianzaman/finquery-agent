@@ -1,0 +1,11 @@
+# Guidance for the descriptions in this file (the owner writes the descriptions themselves).
+#
+# Earnings per share and stock splits:
+# - income_statements.eps_diluted is as reported in the original filing. It is not adjusted for
+#   later stock splits, so a series can drop tenfold at a split (NVDA 2024, NFLX 2025).
+# - income_statements_split_adjusted is the same table plus eps_diluted_adjusted (on today's
+#   share basis) and split_factor (the divisor that was applied, 1 when none).
+# - Say in the descriptions: use eps_diluted_adjusted for EPS trends, growth, comparisons
+#   between periods, and anything set against daily_prices.close (which Yahoo has already
+#   adjusted for splits), such as P/E. Use eps_diluted only for "what did the company report".
+# - stock_splits.ratio is new shares per old share (10 = 10-for-1, 0.125 = 1-for-8 reverse).
