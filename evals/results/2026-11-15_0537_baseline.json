@@ -1,0 +1,1500 @@
+{
+  "system": "baseline",
+  "provider": "openrouter",
+  "model": "nvidia/nemotron-3.5-super-vl:free",
+  "fallback_models": [
+    "google/gemma-4-26b-a4b-it:free"
+  ],
+  "git_commit": "427cb03",
+  "questions_file": "/home/zaman/data/python/finquery-agent/evals/questions.jsonl",
+  "started_at": "2026-11-15T05:36:20+05:00",
+  "finished_at": "2026-11-15T05:37:45+05:00",
+  "resumed_from": null,
+  "complete": true,
+  "stopped_reason": null,
+  "summary": {
+    "questions": 30,
+    "passed": 27,
+    "overall_accuracy": 0.9,
+    "execution_accuracy": 0.8846153846153846,
+    "valid_sql_rate": 1.0,
+    "refusal_accuracy": 1.0,
+    "by_category": {
+      "lookup": {
+        "questions": 6,
+        "passed": 6,
+        "accuracy": 1.0
+      },
+      "trend": {
+        "questions": 6,
+        "passed": 6,
+        "accuracy": 1.0
+      },
+      "comparison": {
+        "questions": 5,
+        "passed": 4,
+        "accuracy": 0.8
+      },
+      "ranking": {
+        "questions": 5,
+        "passed": 4,
+        "accuracy": 0.8
+      },
+      "multi_table": {
+        "questions": 4,
+        "passed": 3,
+        "accuracy": 0.75
+      },
+      "out_of_scope": {
+        "questions": 4,
+        "passed": 4,
+        "accuracy": 1.0
+      }
+    },
+    "latency_ms_p50": 8.0,
+    "latency_ms_p95": 25214.0,
+    "average_tokens": 488.1666666666667,
+    "requests": 5,
+    "cached_replies": 25,
+    "cost_usd": 0.0,
+    "gold_errors": []
+  },
+  "questions": [
+    {
+      "id": "q001",
+      "category": "lookup",
+      "question": "What was Microsoft's total revenue in fiscal 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT SUM(revenue) AS total_revenue FROM income_statements WHERE ticker = 'MSFT' AND fiscal_year = 2025;",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "281724000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "281724000000.0000"
+        ]
+      ],
+      "latency_ms": 332,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q002",
+      "category": "lookup",
+      "question": "What was Apple's net income in its most recent quarter?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT net_income\nFROM income_statements\nWHERE ticker = 'AAPL'\nORDER BY period_end DESC NULLS LAST, fiscal_year DESC, fiscal_quarter DESC\nLIMIT 1;",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "30711000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "30711000000.0000"
+        ]
+      ],
+      "latency_ms": 6,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q003",
+      "category": "lookup",
+      "question": "What were JPMorgan Chase's total assets at the end of fiscal 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT total_assets FROM balance_sheets WHERE ticker = 'JPM' AND fiscal_year = 2025 AND fiscal_quarter = 4 ORDER BY period_end DESC LIMIT 1;",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "4424900000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "4424900000000.0000"
+        ]
+      ],
+      "latency_ms": 6,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q004",
+      "category": "lookup",
+      "question": "What was Tesla's closing share price on 30 June 2026?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT close FROM daily_prices WHERE ticker = 'TSLA' AND trade_date = DATE '2026-06-30';",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "420.6000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "420.6000"
+        ]
+      ],
+      "latency_ms": 6,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q005",
+      "category": "lookup",
+      "question": "How much cash did Alphabet hold at the end of its latest reported quarter?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "WITH alphabet_ticker AS (\n    SELECT ticker\n    FROM companies\n    WHERE name ILIKE '%alphabet%'\n    LIMIT 1\n)\nSELECT b.cash\nFROM balance_sheets b\nJOIN alphabet_ticker at ON b.ticker = at.ticker\nORDER BY b.period_end DESC NULLS LAST\nLIMIT 1;",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "56334000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "56334000000.0000"
+        ]
+      ],
+      "latency_ms": 8,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q006",
+      "category": "lookup",
+      "question": "How much did Coca-Cola pay in dividends per share in calendar 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT COALESCE(SUM(d.amount), 0) AS total_dividends_per_share_2025\nFROM dividends d\nJOIN companies c ON c.ticker = d.ticker\nWHERE c.name ILIKE '%coca-cola%'\n  AND d.ex_date >= DATE '2025-01-01'\n  AND d.ex_date <= DATE '2025-12-31';",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "2.0400"
+        ]
+      ],
+      "system_sample": [
+        [
+          "2.0400"
+        ]
+      ],
+      "latency_ms": 7,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q007",
+      "category": "trend",
+      "question": "How has Nvidia's quarterly revenue changed over its last 8 quarters?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "WITH nvda_rev AS (SELECT period_end, revenue FROM income_statements WHERE ticker = 'NVDA' ORDER BY period_end DESC LIMIT 8) SELECT period_end, revenue, revenue - LAG(revenue) OVER (ORDER BY period_end) AS qoq_change FROM nvda_rev ORDER BY period_end;",
+      "error": null,
+      "gold_row_count": 8,
+      "system_row_count": 8,
+      "gold_sample": [
+        [
+          "96221000000.0000"
+        ],
+        [
+          "81615000000.0000"
+        ],
+        [
+          "68127000000.0000"
+        ],
+        [
+          "57006000000.0000"
+        ],
+        [
+          "46743000000.0000"
+        ],
+        [
+          "44062000000.0000"
+        ],
+        [
+          "39331000000.0000"
+        ],
+        [
+          "35082000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "2024-10-27",
+          "35082000000.0000",
+          null
+        ],
+        [
+          "2025-01-26",
+          "39331000000.0000",
+          "4249000000.0000"
+        ],
+        [
+          "2025-04-27",
+          "44062000000.0000",
+          "4731000000.0000"
+        ],
+        [
+          "2025-07-27",
+          "46743000000.0000",
+          "2681000000.0000"
+        ],
+        [
+          "2025-10-26",
+          "57006000000.0000",
+          "10263000000.0000"
+        ],
+        [
+          "2026-01-25",
+          "68127000000.0000",
+          "11121000000.0000"
+        ],
+        [
+          "2026-04-26",
+          "81615000000.0000",
+          "13488000000.0000"
+        ],
+        [
+          "2026-07-26",
+          "96221000000.0000",
+          "14606000000.0000"
+        ]
+      ],
+      "latency_ms": 6,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q008",
+      "category": "trend",
+      "question": "What was Apple's gross margin, as a percentage, in each quarter of fiscal 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT fiscal_quarter, period_end, ROUND((gross_profit / NULLIF(revenue, 0)) * 100, 2) AS gross_margin_pct FROM income_statements WHERE ticker = 'AAPL' AND fiscal_year = 2025 ORDER BY fiscal_quarter;",
+      "error": null,
+      "gold_row_count": 4,
+      "system_row_count": 4,
+      "gold_sample": [
+        [
+          1,
+          "46.88"
+        ],
+        [
+          2,
+          "47.05"
+        ],
+        [
+          3,
+          "46.49"
+        ],
+        [
+          4,
+          "47.18"
+        ]
+      ],
+      "system_sample": [
+        [
+          1,
+          "2024-12-28",
+          "46.88"
+        ],
+        [
+          2,
+          "2025-03-29",
+          "47.05"
+        ],
+        [
+          3,
+          "2025-06-28",
+          "46.49"
+        ],
+        [
+          4,
+          "2025-09-27",
+          "47.18"
+        ]
+      ],
+      "latency_ms": 7498,
+      "tokens": 1031,
+      "requests": 1,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q009",
+      "category": "trend",
+      "question": "What was Amazon's free cash flow in each fiscal year from 2022 to 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT cf.fiscal_year, SUM(cf.free_cash_flow) AS free_cash_flow FROM cash_flows cf WHERE cf.ticker = 'AMZN' AND cf.fiscal_year BETWEEN 2022 AND 2025 GROUP BY cf.fiscal_year ORDER BY cf.fiscal_year;",
+      "error": null,
+      "gold_row_count": 4,
+      "system_row_count": 4,
+      "gold_sample": [
+        [
+          2022,
+          "-16893000000.0000"
+        ],
+        [
+          2023,
+          "32217000000.0000"
+        ],
+        [
+          2024,
+          "32878000000.0000"
+        ],
+        [
+          2025,
+          "7695000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          2022,
+          "-16893000000.0000"
+        ],
+        [
+          2023,
+          "32217000000.0000"
+        ],
+        [
+          2024,
+          "32878000000.0000"
+        ],
+        [
+          2025,
+          "7695000000.0000"
+        ]
+      ],
+      "latency_ms": 9,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q010",
+      "category": "trend",
+      "question": "How did Meta's average monthly closing price move during 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT date_trunc('month', trade_date) AS month, AVG(close) AS avg_monthly_close FROM daily_prices WHERE ticker = 'META' AND trade_date >= DATE '2025-01-01' AND trade_date < DATE '2026-01-01' GROUP BY 1 ORDER BY 1;",
+      "error": null,
+      "gold_row_count": 12,
+      "system_row_count": 12,
+      "gold_sample": [
+        [
+          "2025-01-01",
+          "631.65"
+        ],
+        [
+          "2025-02-01",
+          "699.22"
+        ],
+        [
+          "2025-03-01",
+          "609.14"
+        ],
+        [
+          "2025-04-01",
+          "533.53"
+        ],
+        [
+          "2025-05-01",
+          "625.58"
+        ],
+        [
+          "2025-06-01",
+          "698.48"
+        ],
+        [
+          "2025-07-01",
+          "716.06"
+        ],
+        [
+          "2025-08-01",
+          "761.97"
+        ],
+        [
+          "2025-09-01",
+          "756.16"
+        ],
+        [
+          "2025-10-01",
+          "719.62"
+        ]
+      ],
+      "system_sample": [
+        [
+          "2025-01-01 00:00:00+00:00",
+          "631.6545000000000000"
+        ],
+        [
+          "2025-02-01 00:00:00+00:00",
+          "699.2178947368421053"
+        ],
+        [
+          "2025-03-01 00:00:00+00:00",
+          "609.1428571428571429"
+        ],
+        [
+          "2025-04-01 00:00:00+00:00",
+          "533.5338095238095238"
+        ],
+        [
+          "2025-05-01 00:00:00+00:00",
+          "625.5838095238095238"
+        ],
+        [
+          "2025-06-01 00:00:00+00:00",
+          "698.4775000000000000"
+        ],
+        [
+          "2025-07-01 00:00:00+00:00",
+          "716.0627272727272727"
+        ],
+        [
+          "2025-08-01 00:00:00+00:00",
+          "761.9676190476190476"
+        ],
+        [
+          "2025-09-01 00:00:00+00:00",
+          "756.1638095238095238"
+        ],
+        [
+          "2025-10-01 00:00:00+00:00",
+          "719.6169565217391304"
+        ]
+      ],
+      "latency_ms": 9,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q011",
+      "category": "trend",
+      "question": "What was Microsoft's year-over-year revenue growth, as a percentage, in each quarter of fiscal 2026?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "WITH rev AS (SELECT fiscal_quarter, MAX(CASE WHEN fiscal_year = 2026 THEN revenue END) AS rev_2026, MAX(CASE WHEN fiscal_year = 2025 THEN revenue END) AS rev_2025 FROM income_statements WHERE ticker = 'MSFT' AND fiscal_year IN (2025, 2026) AND fiscal_quarter BETWEEN 1 AND 4 GROUP BY fiscal_quarter) SELECT fiscal_quarter, rev_2026, rev_2025, CASE WHEN rev_2025 IS NOT NULL AND rev_2025 != 0 THEN ((rev_2026 - rev_2025) / rev_2025) * 100 END AS yoy_revenue_growth_pct FROM rev ORDER BY fiscal_quarter;",
+      "error": null,
+      "gold_row_count": 4,
+      "system_row_count": 4,
+      "gold_sample": [
+        [
+          1,
+          "18.43"
+        ],
+        [
+          2,
+          "16.72"
+        ],
+        [
+          3,
+          "18.30"
+        ],
+        [
+          4,
+          "17.75"
+        ]
+      ],
+      "system_sample": [
+        [
+          1,
+          "77673000000.0000",
+          "65585000000.0000",
+          "18.43104368376915453200"
+        ],
+        [
+          2,
+          "81273000000.0000",
+          "69632000000.0000",
+          "16.71788832720588235300"
+        ],
+        [
+          3,
+          "82886000000.0000",
+          "70066000000.0000",
+          "18.29703422487369052000"
+        ],
+        [
+          4,
+          "90007000000.0000",
+          "76441000000.0000",
+          "17.74702057796208840800"
+        ]
+      ],
+      "latency_ms": 9283,
+      "tokens": 2203,
+      "requests": 1,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q012",
+      "category": "trend",
+      "question": "How has Walmart's long-term debt changed at each fiscal year end since fiscal 2022?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT\n    fiscal_year,\n    period_end,\n    long_term_debt,\n    long_term_debt - LAG(long_term_debt) OVER (ORDER BY fiscal_year) AS change_from_prior_year\nFROM balance_sheets\nWHERE ticker = 'WMT'\n  AND fiscal_year >= 2022\n  AND fiscal_quarter = 4\nORDER BY fiscal_year;",
+      "error": null,
+      "gold_row_count": 5,
+      "system_row_count": 5,
+      "gold_sample": [
+        [
+          2022,
+          "2022-01-31",
+          "34864000000.0000"
+        ],
+        [
+          2023,
+          "2023-01-31",
+          "34649000000.0000"
+        ],
+        [
+          2024,
+          "2024-01-31",
+          "36132000000.0000"
+        ],
+        [
+          2025,
+          "2025-01-31",
+          "33401000000.0000"
+        ],
+        [
+          2026,
+          "2026-01-31",
+          "34624000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          2022,
+          "2022-01-31",
+          "34864000000.0000",
+          null
+        ],
+        [
+          2023,
+          "2023-01-31",
+          "34649000000.0000",
+          "-215000000.0000"
+        ],
+        [
+          2024,
+          "2024-01-31",
+          "36132000000.0000",
+          "1483000000.0000"
+        ],
+        [
+          2025,
+          "2025-01-31",
+          "33401000000.0000",
+          "-2731000000.0000"
+        ],
+        [
+          2026,
+          "2026-01-31",
+          "34624000000.0000",
+          "1223000000.0000"
+        ]
+      ],
+      "latency_ms": 7,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q013",
+      "category": "comparison",
+      "question": "Compare Visa's and Mastercard's net income in fiscal 2025.",
+      "passed": false,
+      "reason": "row count differs: gold 2, system 8",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT i.ticker, i.fiscal_year, i.net_income FROM income_statements i WHERE i.ticker IN ('V', 'MA') AND i.fiscal_year = 2025 ORDER BY i.ticker;",
+      "error": null,
+      "gold_row_count": 2,
+      "system_row_count": 8,
+      "gold_sample": [
+        [
+          "MA",
+          "14968000000.0000"
+        ],
+        [
+          "V",
+          "20058000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "MA",
+          2025,
+          "4060000000.0000"
+        ],
+        [
+          "MA",
+          2025,
+          "3280000000.0000"
+        ],
+        [
+          "MA",
+          2025,
+          "3701000000.0000"
+        ],
+        [
+          "MA",
+          2025,
+          "3927000000.0000"
+        ],
+        [
+          "V",
+          2025,
+          "5119000000.0000"
+        ],
+        [
+          "V",
+          2025,
+          "4577000000.0000"
+        ],
+        [
+          "V",
+          2025,
+          "5272000000.0000"
+        ],
+        [
+          "V",
+          2025,
+          "5090000000.0000"
+        ]
+      ],
+      "latency_ms": 8,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q014",
+      "category": "comparison",
+      "question": "Which had higher revenue in calendar 2025, Coca-Cola or PepsiCo?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "WITH calendar_2025_revenue AS (\n    SELECT\n        i.ticker,\n        SUM(i.revenue) AS total_revenue\n    FROM income_statements i\n    WHERE i.ticker IN ('KO', 'PEP')\n      AND i.period_end >= DATE '2025-01-01'\n      AND i.period_end <= DATE '2025-12-31'\n    GROUP BY i.ticker\n)\nSELECT\n    ticker,\n    total_revenue\nFROM calendar_2025_revenue\nORDER BY total_revenue DESC\nLIMIT 1;",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "PEP"
+        ]
+      ],
+      "system_sample": [
+        [
+          "PEP",
+          "93925000000.0000"
+        ]
+      ],
+      "latency_ms": 8,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q015",
+      "category": "comparison",
+      "question": "Compare the total assets of the Utilities companies at the end of their latest reported quarter.",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "WITH latest_bs AS (\n    SELECT\n        b.ticker,\n        b.total_assets,\n        b.period_end,\n        ROW_NUMBER() OVER (PARTITION BY b.ticker ORDER BY b.period_end DESC, b.fiscal_year DESC, b.fiscal_quarter DESC) AS rn\n    FROM balance_sheets b\n)\nSELECT\n    c.ticker,\n    c.name,\n    lb.total_assets,\n    lb.period_end\nFROM latest_bs lb\nJOIN companies c ON c.ticker = lb.ticker\nWHERE c.sector = 'Utilities'\n  AND lb.rn = 1\nORDER BY c.ticker;",
+      "error": null,
+      "gold_row_count": 5,
+      "system_row_count": 5,
+      "gold_sample": [
+        [
+          "NEE",
+          "2026-09-30",
+          "245052000000.0000"
+        ],
+        [
+          "DUK",
+          "2026-09-30",
+          "203863000000.0000"
+        ],
+        [
+          "SO",
+          "2026-09-30",
+          "164204000000.0000"
+        ],
+        [
+          "AEP",
+          "2026-09-30",
+          "125695000000.0000"
+        ],
+        [
+          "D",
+          "2026-09-30",
+          "124784000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "AEP",
+          "American Electric Power",
+          "125695000000.0000",
+          "2026-09-30"
+        ],
+        [
+          "D",
+          "Dominion Energy",
+          "124784000000.0000",
+          "2026-09-30"
+        ],
+        [
+          "DUK",
+          "Duke Energy",
+          "203863000000.0000",
+          "2026-09-30"
+        ],
+        [
+          "NEE",
+          "NextEra Energy",
+          "245052000000.0000",
+          "2026-09-30"
+        ],
+        [
+          "SO",
+          "Southern Company",
+          "164204000000.0000",
+          "2026-09-30"
+        ]
+      ],
+      "latency_ms": 9,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q016",
+      "category": "comparison",
+      "question": "How did Exxon Mobil's and Chevron's operating cash flow compare in fiscal 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT c.ticker, SUM(c.operating_cash_flow) AS total_operating_cash_flow FROM cash_flows c WHERE c.ticker IN ('XOM', 'CVX') AND c.fiscal_year = 2025 GROUP BY c.ticker ORDER BY c.ticker;",
+      "error": null,
+      "gold_row_count": 2,
+      "system_row_count": 2,
+      "gold_sample": [
+        [
+          "CVX",
+          "33939000000.0000"
+        ],
+        [
+          "XOM",
+          "51970000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "CVX",
+          "33939000000.0000"
+        ],
+        [
+          "XOM",
+          "51970000000.0000"
+        ]
+      ],
+      "latency_ms": 8,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q017",
+      "category": "comparison",
+      "question": "Compare Home Depot's and Nike's net profit margin, as a percentage, in fiscal 2025.",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT ticker, ROUND(100.0 * SUM(net_income) / NULLIF(SUM(revenue), 0), 2) AS net_profit_margin_percent FROM income_statements WHERE fiscal_year = 2025 AND ticker IN ('HD', 'NKE') GROUP BY ticker ORDER BY ticker;",
+      "error": null,
+      "gold_row_count": 2,
+      "system_row_count": 2,
+      "gold_sample": [
+        [
+          "HD",
+          "8.60"
+        ],
+        [
+          "NKE",
+          "6.95"
+        ]
+      ],
+      "system_sample": [
+        [
+          "HD",
+          "8.60"
+        ],
+        [
+          "NKE",
+          "6.95"
+        ]
+      ],
+      "latency_ms": 25214,
+      "tokens": 3897,
+      "requests": 1,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q018",
+      "category": "ranking",
+      "question": "Which 5 companies had the highest total revenue in fiscal 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT c.ticker, c.name, SUM(i.revenue) AS total_revenue\nFROM income_statements i\nJOIN companies c ON c.ticker = i.ticker\nWHERE i.fiscal_year = 2025\nGROUP BY c.ticker, c.name\nORDER BY total_revenue DESC\nLIMIT 5;",
+      "error": null,
+      "gold_row_count": 5,
+      "system_row_count": 5,
+      "gold_sample": [
+        [
+          "AMZN",
+          "716924000000.0000"
+        ],
+        [
+          "WMT",
+          "680985000000.0000"
+        ],
+        [
+          "UNH",
+          "447567000000.0000"
+        ],
+        [
+          "AAPL",
+          "416161000000.0000"
+        ],
+        [
+          "GOOGL",
+          "402837000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "AMZN",
+          "Amazon",
+          "716924000000.0000"
+        ],
+        [
+          "WMT",
+          "Walmart",
+          "680985000000.0000"
+        ],
+        [
+          "UNH",
+          "UnitedHealth Group",
+          "447567000000.0000"
+        ],
+        [
+          "AAPL",
+          "Apple",
+          "416161000000.0000"
+        ],
+        [
+          "GOOGL",
+          "Alphabet",
+          "402837000000.0000"
+        ]
+      ],
+      "latency_ms": 10,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q019",
+      "category": "ranking",
+      "question": "Which Technology company had the highest net profit margin, as a percentage, in fiscal 2025?",
+      "passed": false,
+      "reason": "no system column holds the values of gold column 1",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "WITH tech AS (\n    SELECT ticker, name\n    FROM companies\n    WHERE sector = 'Technology'\n),\nfy AS (\n    SELECT \n        ticker,\n        SUM(net_income) AS net_income,\n        SUM(revenue) AS revenue\n    FROM income_statements\n    WHERE fiscal_year = 2025\n    GROUP BY ticker\n)\nSELECT \n    t.name,\n    ROUND(100.0 * f.net_income / f.revenue, 2) AS net_profit_margin_percent\nFROM fy f\nJOIN tech t ON f.ticker = t.ticker\nWHERE f.revenue > 0\nORDER BY net_profit_margin_percent DESC\nLIMIT 1;",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "NVDA"
+        ]
+      ],
+      "system_sample": [
+        [
+          "NVIDIA",
+          "55.85"
+        ]
+      ],
+      "latency_ms": 12371,
+      "tokens": 2598,
+      "requests": 1,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q020",
+      "category": "ranking",
+      "question": "Rank the Healthcare companies by dividends paid per share in calendar 2025.",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT c.ticker,\n       c.name,\n       COALESCE(SUM(d.amount), 0) AS dividends_per_share_2025,\n       RANK() OVER (ORDER BY COALESCE(SUM(d.amount), 0) DESC) AS dividend_rank\nFROM companies c\nLEFT JOIN dividends d\n  ON d.ticker = c.ticker\n  AND d.ex_date >= DATE '2025-01-01'\n  AND d.ex_date <= DATE '2025-12-31'\nWHERE c.sector = 'Healthcare'\nGROUP BY c.ticker, c.name\nORDER BY dividends_per_share_2025 DESC, c.ticker;",
+      "error": null,
+      "gold_row_count": 5,
+      "system_row_count": 5,
+      "gold_sample": [
+        [
+          "UNH",
+          "8.7300"
+        ],
+        [
+          "ABBV",
+          "6.5600"
+        ],
+        [
+          "JNJ",
+          "5.1400"
+        ],
+        [
+          "MRK",
+          "3.2800"
+        ],
+        [
+          "PFE",
+          "1.7200"
+        ]
+      ],
+      "system_sample": [
+        [
+          "UNH",
+          "UnitedHealth Group",
+          "8.7300",
+          1
+        ],
+        [
+          "ABBV",
+          "AbbVie",
+          "6.5600",
+          2
+        ],
+        [
+          "JNJ",
+          "Johnson & Johnson",
+          "5.1400",
+          3
+        ],
+        [
+          "MRK",
+          "Merck",
+          "3.2800",
+          4
+        ],
+        [
+          "PFE",
+          "Pfizer",
+          "1.7200",
+          5
+        ]
+      ],
+      "latency_ms": 9,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q021",
+      "category": "ranking",
+      "question": "Which 3 companies' share prices rose the most from the first to the last trading day of 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "WITH ranked AS (\n  SELECT ticker, trade_date, close,\n         ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY trade_date ASC) AS rn_asc,\n         ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY trade_date DESC) AS rn_desc\n  FROM daily_prices\n  WHERE trade_date >= DATE '2025-01-01' AND trade_date <= DATE '2025-12-31'\n),\nfirst_prices AS (\n  SELECT ticker, close AS first_close FROM ranked WHERE rn_asc = 1\n),\nlast_prices AS (\n  SELECT ticker, close AS last_close FROM ranked WHERE rn_desc = 1\n)\nSELECT c.ticker, c.name, fp.first_close, lp.last_close,\n       ((lp.last_close - fp.first_close) / fp.first_close) * 100.0 AS pct_change\nFROM first_prices fp\nJOIN last_prices lp ON fp.ticker = lp.ticker\nJOIN companies c ON c.ticker = fp.ticker\nWHERE fp.first_close > 0\nORDER BY pct_change DESC\nLIMIT 3;",
+      "error": null,
+      "gold_row_count": 3,
+      "system_row_count": 3,
+      "gold_sample": [
+        [
+          "NEM",
+          "160.23"
+        ],
+        [
+          "GE",
+          "82.71"
+        ],
+        [
+          "GOOGL",
+          "65.23"
+        ]
+      ],
+      "system_sample": [
+        [
+          "NEM",
+          "Newmont",
+          "38.3700",
+          "99.8500",
+          "160.22934584310659000"
+        ],
+        [
+          "GE",
+          "GE Aerospace",
+          "168.5900",
+          "308.0300",
+          "82.709532000711785990000"
+        ],
+        [
+          "GOOGL",
+          "Alphabet",
+          "189.4300",
+          "313.0000",
+          "65.232539724436467297000"
+        ]
+      ],
+      "latency_ms": 40,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q022",
+      "category": "ranking",
+      "question": "Which sector had the highest combined net income in fiscal 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT c.sector, SUM(i.net_income) AS combined_net_income FROM income_statements i JOIN companies c ON i.ticker = c.ticker WHERE i.fiscal_year = 2025 GROUP BY c.sector ORDER BY combined_net_income DESC LIMIT 1;",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "Technology",
+          "306295000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "Technology",
+          "306295000000.0000"
+        ]
+      ],
+      "latency_ms": 5,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q023",
+      "category": "multi_table",
+      "question": "What was Apple's price-to-earnings ratio at the end of fiscal 2025, using the closing price on the last trading day of the fiscal year and fiscal 2025 diluted EPS?",
+      "passed": false,
+      "reason": "no system column holds the values of gold column 1",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "WITH apple_info AS (\n    SELECT ticker, fiscal_year_end_month\n    FROM companies\n    WHERE ticker = 'AAPL'\n),\nfiscal_year_end AS (\n    SELECT\n        ticker,\n        (make_date(2025, fiscal_year_end_month, 1) + interval '1 month' - interval '1 day')::date AS period_end_date\n    FROM apple_info\n),\nlast_trading_day AS (\n    SELECT\n        dp.ticker,\n        dp.trade_date,\n        dp.close\n    FROM daily_prices dp\n    JOIN fiscal_year_end fye ON dp.ticker = fye.ticker\n    WHERE dp.trade_date <= fye.period_end_date\n    ORDER BY dp.trade_date DESC\n    LIMIT 1\n),\nfiscal_eps AS (\n    SELECT\n        inc.ticker,\n        inc.eps_diluted\n    FROM income_statements inc\n    WHERE inc.ticker = 'AAPL'\n      AND inc.fiscal_year = 2025\n    ORDER BY inc.period_end DESC\n    LIMIT 1\n)\nSELECT\n    ltd.close / feps.eps_diluted AS price_to_earnings_ratio\nFROM last_trading_day ltd\nCROSS JOIN fiscal_eps feps;",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "34.24"
+        ]
+      ],
+      "system_sample": [
+        [
+          "138.3858695652173913"
+        ]
+      ],
+      "latency_ms": 8,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q024",
+      "category": "multi_table",
+      "question": "Which companies grew revenue in fiscal 2025 compared with fiscal 2024 but saw their share price fall from the first to the last trading day of 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "WITH rev AS (\n    SELECT ticker,\n           SUM(CASE WHEN fiscal_year = 2024 THEN revenue END) AS rev_2024,\n           SUM(CASE WHEN fiscal_year = 2025 THEN revenue END) AS rev_2025\n    FROM income_statements\n    WHERE fiscal_year IN (2024, 2025)\n    GROUP BY ticker\n    HAVING SUM(CASE WHEN fiscal_year = 2025 THEN revenue END) > SUM(CASE WHEN fiscal_year = 2024 THEN revenue END)\n),\nprice_bounds AS (\n    SELECT ticker,\n           MIN(trade_date) AS first_date,\n           MAX(trade_date) AS last_date\n    FROM daily_prices\n    WHERE trade_date >= DATE '2025-01-01' AND trade_date <= DATE '2025-12-31'\n    GROUP BY ticker\n),\nprice_first AS (\n    SELECT dp.ticker, dp.close AS first_close\n    FROM daily_prices dp\n    JOIN price_bounds pb ON dp.ticker = pb.ticker AND dp.trade_date = pb.first_date\n),\nprice_last AS (\n    SELECT dp.ticker, dp.close AS last_close\n    FROM daily_prices dp\n    JOIN price_bounds pb ON dp.ticker = pb.ticker AND dp.trade_date = pb.last_date\n),\nprice_change AS (\n    SELECT pf.ticker, pf.first_close, pl.last_close\n    FROM price_first pf\n    JOIN price_last pl ON pf.ticker = pl.ticker\n    WHERE pl.last_close < pf.first_close\n)\nSELECT r.ticker, c.name\nFROM rev r\nJOIN price_change pc ON r.ticker = pc.ticker\nJOIN companies c ON c.ticker = r.ticker;",
+      "error": null,
+      "gold_row_count": 9,
+      "system_row_count": 9,
+      "gold_sample": [
+        [
+          "ADBE"
+        ],
+        [
+          "COP"
+        ],
+        [
+          "COST"
+        ],
+        [
+          "HD"
+        ],
+        [
+          "HON"
+        ],
+        [
+          "PEP"
+        ],
+        [
+          "PG"
+        ],
+        [
+          "SHW"
+        ],
+        [
+          "UNH"
+        ]
+      ],
+      "system_sample": [
+        [
+          "UNH",
+          "UnitedHealth Group"
+        ],
+        [
+          "HD",
+          "Home Depot"
+        ],
+        [
+          "HON",
+          "Honeywell"
+        ],
+        [
+          "PG",
+          "Procter & Gamble"
+        ],
+        [
+          "ADBE",
+          "Adobe"
+        ],
+        [
+          "SHW",
+          "Sherwin-Williams"
+        ],
+        [
+          "COP",
+          "ConocoPhillips"
+        ],
+        [
+          "COST",
+          "Costco"
+        ],
+        [
+          "PEP",
+          "PepsiCo"
+        ]
+      ],
+      "latency_ms": 13,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q025",
+      "category": "multi_table",
+      "question": "What was Microsoft's dividend payout ratio, as a percentage, in fiscal 2025, as dividends per share divided by diluted EPS?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "WITH msft AS (\n    SELECT ticker, fiscal_year_end_month\n    FROM companies\n    WHERE ticker = 'MSFT'\n    LIMIT 1\n),\nfiscal_dates AS (\n    SELECT \n        m.ticker,\n        (make_date(2024, (m.fiscal_year_end_month % 12) + 1, 1))::date AS fiscal_start,\n        ((make_date(2025, m.fiscal_year_end_month, 1) + interval '1 month' - interval '1 day'))::date AS fiscal_end\n    FROM msft m\n),\ndiv_per_share AS (\n    SELECT \n        d.ticker,\n        SUM(d.amount) AS dividends_per_share\n    FROM dividends d\n    JOIN fiscal_dates fd ON d.ticker = fd.ticker\n    WHERE d.ex_date >= fd.fiscal_start \n      AND d.ex_date <= fd.fiscal_end\n    GROUP BY d.ticker\n),\neps_diluted_annual AS (\n    SELECT \n        i.ticker,\n        SUM(i.eps_diluted) AS diluted_eps\n    FROM income_statements i\n    JOIN msft m ON i.ticker = m.ticker\n    WHERE i.fiscal_year = 2025\n      AND i.eps_diluted IS NOT NULL\n    GROUP BY i.ticker\n)\nSELECT \n    ROUND((dps.dividends_per_share / eps.diluted_eps) * 100, 2) AS dividend_payout_ratio_percent\nFROM div_per_share dps\nJOIN eps_diluted_annual eps ON dps.ticker = eps.ticker;",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "23.75"
+        ]
+      ],
+      "system_sample": [
+        [
+          "23.75"
+        ]
+      ],
+      "latency_ms": 29252,
+      "tokens": 4916,
+      "requests": 1,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q026",
+      "category": "multi_table",
+      "question": "Which Financial Services companies had total liabilities greater than 10 times shareholders' equity at the end of fiscal 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT c.ticker, c.name\nFROM companies c\nJOIN balance_sheets b ON c.ticker = b.ticker\nWHERE c.sector = 'Financial Services'\n  AND b.fiscal_year = 2025\n  AND b.fiscal_quarter = 4\n  AND b.total_liabilities > 10 * b.shareholders_equity;",
+      "error": null,
+      "gold_row_count": 3,
+      "system_row_count": 3,
+      "gold_sample": [
+        [
+          "BAC"
+        ],
+        [
+          "GS"
+        ],
+        [
+          "JPM"
+        ]
+      ],
+      "system_sample": [
+        [
+          "BAC",
+          "Bank of America"
+        ],
+        [
+          "GS",
+          "Goldman Sachs"
+        ],
+        [
+          "JPM",
+          "JPMorgan Chase"
+        ]
+      ],
+      "latency_ms": 11,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q027",
+      "category": "out_of_scope",
+      "question": "Should I buy Nvidia stock right now?",
+      "passed": true,
+      "reason": "",
+      "refused": true,
+      "refusal": "This question asks for investment advice about whether to buy Nvidia stock, which cannot be answered from the provided database.",
+      "valid_sql": null,
+      "gold_error": null,
+      "system_sql": null,
+      "error": null,
+      "gold_row_count": 0,
+      "system_row_count": 0,
+      "gold_sample": [],
+      "system_sample": [],
+      "latency_ms": 4,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q028",
+      "category": "out_of_scope",
+      "question": "What will Apple's revenue be next quarter?",
+      "passed": true,
+      "reason": "",
+      "refused": true,
+      "refusal": "Cannot predict future revenue; the database contains only historical financial data, not forecasts or future quarters.",
+      "valid_sql": null,
+      "gold_error": null,
+      "system_sql": null,
+      "error": null,
+      "gold_row_count": 0,
+      "system_row_count": 0,
+      "gold_sample": [],
+      "system_sample": [],
+      "latency_ms": 3,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q029",
+      "category": "out_of_scope",
+      "question": "What was Samsung's revenue in 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": true,
+      "refusal": "Samsung is not a US public company (it is a South Korean company), so it is not covered by this database of US public companies, and 2025 revenue cannot be retrieved.",
+      "valid_sql": null,
+      "gold_error": null,
+      "system_sql": null,
+      "error": null,
+      "gold_row_count": 0,
+      "system_row_count": 0,
+      "gold_sample": [],
+      "system_sample": [],
+      "latency_ms": 2,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q030",
+      "category": "out_of_scope",
+      "question": "Delete all rows from the companies table.",
+      "passed": true,
+      "reason": "",
+      "refused": true,
+      "refusal": "Cannot delete rows; only SELECT statements are permitted, and data modification requests are not allowed.",
+      "valid_sql": null,
+      "gold_error": null,
+      "system_sql": null,
+      "error": null,
+      "gold_row_count": 0,
+      "system_row_count": 0,
+      "gold_sample": [],
+      "system_sample": [],
+      "latency_ms": 2,
+      "tokens": 0,
+      "requests": 0,
+      "cached": 1,
+      "cost_usd": 0.0
+    }
+  ]
+}
