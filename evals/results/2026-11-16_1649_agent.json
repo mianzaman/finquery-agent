@@ -1,0 +1,608 @@
+{
+  "system": "agent",
+  "provider": "openrouter",
+  "model": "nvidia/nemotron-3.5-super-vl:free",
+  "fallback_models": [
+    "google/gemma-4-26b-a4b-it:free"
+  ],
+  "git_commit": "0ea08ab",
+  "questions_file": "/home/zaman/data/python/finquery-agent/evals/questions.jsonl",
+  "started_at": "2026-11-16T16:45:46+05:00",
+  "finished_at": "2026-11-16T16:49:12+05:00",
+  "resumed_from": null,
+  "complete": true,
+  "stopped_reason": null,
+  "summary": {
+    "questions": 10,
+    "passed": 10,
+    "overall_accuracy": 1.0,
+    "execution_accuracy": 1.0,
+    "valid_sql_rate": 1.0,
+    "refusal_accuracy": null,
+    "answers_checked": 10,
+    "faithfulness_rate": 1.0,
+    "repairs": 0,
+    "questions_repaired": 0,
+    "repair_success": null,
+    "by_category": {
+      "lookup": {
+        "questions": 2,
+        "passed": 2,
+        "accuracy": 1.0
+      },
+      "trend": {
+        "questions": 2,
+        "passed": 2,
+        "accuracy": 1.0
+      },
+      "comparison": {
+        "questions": 2,
+        "passed": 2,
+        "accuracy": 1.0
+      },
+      "ranking": {
+        "questions": 2,
+        "passed": 2,
+        "accuracy": 1.0
+      },
+      "multi_table": {
+        "questions": 2,
+        "passed": 2,
+        "accuracy": 1.0
+      }
+    },
+    "latency_ms_p50": 18215.0,
+    "latency_ms_p95": 39243.0,
+    "average_tokens": 4618.0,
+    "requests": 30,
+    "cached_replies": 0,
+    "cost_usd": 0.0,
+    "gold_errors": []
+  },
+  "questions": [
+    {
+      "id": "q002",
+      "category": "lookup",
+      "question": "What was Apple's net income in its most recent quarter?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT net_income FROM income_statements WHERE ticker = 'AAPL' ORDER BY period_end DESC LIMIT 1",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "30711000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "30711000000.0000"
+        ]
+      ],
+      "answer": "Apple's net income was 30.711 billion USD in fiscal 2026 Q4, which ended on 2026-09-26.",
+      "faithfulness": true,
+      "attempts": 0,
+      "answer_attempts": 1,
+      "latency_ms": 23146,
+      "tokens": 3789,
+      "requests": 3,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q004",
+      "category": "lookup",
+      "question": "What was Tesla's closing share price on 30 June 2026?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT close FROM daily_prices WHERE ticker = 'TSLA' AND trade_date = '2026-06-30' LIMIT 500",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "420.6000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "420.6000"
+        ]
+      ],
+      "answer": "Tesla's closing share price on 30 June 2026 was 420.6 USD per share.",
+      "faithfulness": true,
+      "attempts": 0,
+      "answer_attempts": 1,
+      "latency_ms": 10063,
+      "tokens": 2865,
+      "requests": 3,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q007",
+      "category": "trend",
+      "question": "How has Nvidia's quarterly revenue changed over its last 8 quarters?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT fiscal_year, fiscal_quarter, revenue FROM income_statements WHERE ticker = 'NVDA' ORDER BY period_end DESC LIMIT 8",
+      "error": null,
+      "gold_row_count": 8,
+      "system_row_count": 8,
+      "gold_sample": [
+        [
+          "96221000000.0000"
+        ],
+        [
+          "81615000000.0000"
+        ],
+        [
+          "68127000000.0000"
+        ],
+        [
+          "57006000000.0000"
+        ],
+        [
+          "46743000000.0000"
+        ],
+        [
+          "44062000000.0000"
+        ],
+        [
+          "39331000000.0000"
+        ],
+        [
+          "35082000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          2027,
+          2,
+          "96221000000.0000"
+        ],
+        [
+          2027,
+          1,
+          "81615000000.0000"
+        ],
+        [
+          2026,
+          4,
+          "68127000000.0000"
+        ],
+        [
+          2026,
+          3,
+          "57006000000.0000"
+        ],
+        [
+          2026,
+          2,
+          "46743000000.0000"
+        ],
+        [
+          2026,
+          1,
+          "44062000000.0000"
+        ],
+        [
+          2025,
+          4,
+          "39331000000.0000"
+        ],
+        [
+          2025,
+          3,
+          "35082000000.0000"
+        ]
+      ],
+      "answer": "NVIDIA's quarterly revenue increased from 35.082 billion USD in fiscal 2025 Q3 to 39.331 billion USD in fiscal 2025 Q4, 44.062 billion USD in fiscal 2026 Q1, 46.743 billion USD in fiscal 2026 Q2, 57.006 billion USD in fiscal 2026 Q3, 68.127 billion USD in fiscal 2026 Q4, 81.615 billion USD in fiscal 2027 Q1, and 96.221 billion USD in fiscal 2027 Q2.",
+      "faithfulness": true,
+      "attempts": 0,
+      "answer_attempts": 1,
+      "latency_ms": 22038,
+      "tokens": 5186,
+      "requests": 3,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q011",
+      "category": "trend",
+      "question": "What was Microsoft's year-over-year revenue growth, as a percentage, in each quarter of fiscal 2026?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT cur.fiscal_quarter, ROUND((cur.revenue - prev.revenue) / prev.revenue * 100, 2) AS yoy_revenue_growth_pct FROM income_statements AS cur JOIN income_statements AS prev ON prev.ticker = cur.ticker AND prev.fiscal_year = cur.fiscal_year - 1 AND prev.fiscal_quarter = cur.fiscal_quarter WHERE cur.ticker = 'MSFT' AND cur.fiscal_year = 2026 ORDER BY cur.fiscal_quarter LIMIT 500",
+      "error": null,
+      "gold_row_count": 4,
+      "system_row_count": 4,
+      "gold_sample": [
+        [
+          1,
+          "18.43"
+        ],
+        [
+          2,
+          "16.72"
+        ],
+        [
+          3,
+          "18.30"
+        ],
+        [
+          4,
+          "17.75"
+        ]
+      ],
+      "system_sample": [
+        [
+          1,
+          "18.43"
+        ],
+        [
+          2,
+          "16.72"
+        ],
+        [
+          3,
+          "18.30"
+        ],
+        [
+          4,
+          "17.75"
+        ]
+      ],
+      "answer": "Microsoft's year-over-year revenue growth was 18.43% in fiscal 2026 Q1, 16.72% in Q2, 18.3% in Q3, and 17.75% in Q4.",
+      "faithfulness": true,
+      "attempts": 0,
+      "answer_attempts": 1,
+      "latency_ms": 14438,
+      "tokens": 4554,
+      "requests": 3,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q013",
+      "category": "comparison",
+      "question": "Compare Visa's and Mastercard's net income in fiscal 2025.",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT ticker, SUM(net_income) AS net_income FROM income_statements WHERE ticker IN ('V', 'MA') AND fiscal_year = 2025 GROUP BY ticker ORDER BY ticker LIMIT 500",
+      "error": null,
+      "gold_row_count": 2,
+      "system_row_count": 2,
+      "gold_sample": [
+        [
+          "MA",
+          "14968000000.0000"
+        ],
+        [
+          "V",
+          "20058000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "MA",
+          "14968000000.0000"
+        ],
+        [
+          "V",
+          "20058000000.0000"
+        ]
+      ],
+      "answer": "Visa reported net income of 20.058 billion USD for fiscal 2025 Q1-Q4, while Mastercard reported net income of 14.968 billion USD for fiscal 2025 Q1-Q4.",
+      "faithfulness": true,
+      "attempts": 0,
+      "answer_attempts": 1,
+      "latency_ms": 17812,
+      "tokens": 4482,
+      "requests": 3,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q016",
+      "category": "comparison",
+      "question": "How did Exxon Mobil's and Chevron's operating cash flow compare in fiscal 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT f.ticker, SUM(f.operating_cash_flow) AS operating_cash_flow FROM cash_flows AS f WHERE f.ticker IN ('XOM', 'CVX') AND f.fiscal_year = 2025 GROUP BY f.ticker ORDER BY operating_cash_flow DESC LIMIT 500",
+      "error": null,
+      "gold_row_count": 2,
+      "system_row_count": 2,
+      "gold_sample": [
+        [
+          "CVX",
+          "33939000000.0000"
+        ],
+        [
+          "XOM",
+          "51970000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "XOM",
+          "51970000000.0000"
+        ],
+        [
+          "CVX",
+          "33939000000.0000"
+        ]
+      ],
+      "answer": "Exxon Mobil's operating cash flow was 51.97 billion USD for fiscal 2025 Q1-Q4, while Chevron's operating cash flow was 33.939 billion USD for the same period.",
+      "faithfulness": true,
+      "attempts": 0,
+      "answer_attempts": 1,
+      "latency_ms": 16809,
+      "tokens": 4569,
+      "requests": 3,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q018",
+      "category": "ranking",
+      "question": "Which 5 companies had the highest total revenue in fiscal 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT ticker, SUM(revenue) AS total_revenue FROM income_statements WHERE fiscal_year = 2025 GROUP BY ticker ORDER BY total_revenue DESC LIMIT 5",
+      "error": null,
+      "gold_row_count": 5,
+      "system_row_count": 5,
+      "gold_sample": [
+        [
+          "AMZN",
+          "716924000000.0000"
+        ],
+        [
+          "WMT",
+          "680985000000.0000"
+        ],
+        [
+          "UNH",
+          "447567000000.0000"
+        ],
+        [
+          "AAPL",
+          "416161000000.0000"
+        ],
+        [
+          "GOOGL",
+          "402837000000.0000"
+        ]
+      ],
+      "system_sample": [
+        [
+          "AMZN",
+          "716924000000.0000"
+        ],
+        [
+          "WMT",
+          "680985000000.0000"
+        ],
+        [
+          "UNH",
+          "447567000000.0000"
+        ],
+        [
+          "AAPL",
+          "416161000000.0000"
+        ],
+        [
+          "GOOGL",
+          "402837000000.0000"
+        ]
+      ],
+      "answer": "In fiscal 2025, the five companies with the highest total revenue were AMZN at 716,924,000,000 USD, WMT at 680,985,000,000 USD, UNH at 447,567,000,000 USD, AAPL at 416,161,000,000 USD, and GOOGL at 402,837,000,000 USD.",
+      "faithfulness": true,
+      "attempts": 0,
+      "answer_attempts": 1,
+      "latency_ms": 18215,
+      "tokens": 4275,
+      "requests": 3,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q021",
+      "category": "ranking",
+      "question": "Which 3 companies' share prices rose the most from the first to the last trading day of 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "WITH p AS (SELECT ticker, close, ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY trade_date) AS rn_first, ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY trade_date DESC) AS rn_last FROM daily_prices WHERE trade_date >= '2025-01-01' AND trade_date < '2026-01-01') SELECT f.ticker, ROUND((l.close - f.close) / f.close * 100, 2) AS change_pct FROM p AS f JOIN p AS l ON l.ticker = f.ticker AND l.rn_last = 1 WHERE f.rn_first = 1 ORDER BY change_pct DESC LIMIT 3",
+      "error": null,
+      "gold_row_count": 3,
+      "system_row_count": 3,
+      "gold_sample": [
+        [
+          "NEM",
+          "160.23"
+        ],
+        [
+          "GE",
+          "82.71"
+        ],
+        [
+          "GOOGL",
+          "65.23"
+        ]
+      ],
+      "system_sample": [
+        [
+          "NEM",
+          "160.23"
+        ],
+        [
+          "GE",
+          "82.71"
+        ],
+        [
+          "GOOGL",
+          "65.23"
+        ]
+      ],
+      "answer": "NEM's share price rose 160.23% from the first to the last trading day of 2025. GE's share price rose 82.71% over the same period. GOOGL's share price rose 65.23% over the same period.",
+      "faithfulness": true,
+      "attempts": 0,
+      "answer_attempts": 1,
+      "latency_ms": 20120,
+      "tokens": 4345,
+      "requests": 3,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q023",
+      "category": "multi_table",
+      "question": "What was Apple's price-to-earnings ratio at the end of fiscal 2025, using the closing price on the last trading day of the fiscal year and fiscal 2025 diluted EPS?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "SELECT ROUND((SELECT close FROM daily_prices WHERE ticker = 'AAPL' AND trade_date <= (SELECT MAX(period_end) FROM income_statements WHERE ticker = 'AAPL' AND fiscal_year = 2025) ORDER BY trade_date DESC LIMIT 1) / (SELECT SUM(eps_diluted_adjusted) FROM income_statements_split_adjusted WHERE ticker = 'AAPL' AND fiscal_year = 2025), 2) AS pe_ratio LIMIT 500",
+      "error": null,
+      "gold_row_count": 1,
+      "system_row_count": 1,
+      "gold_sample": [
+        [
+          "34.24"
+        ]
+      ],
+      "system_sample": [
+        [
+          "34.24"
+        ]
+      ],
+      "answer": "Apple's price-to-earnings ratio at the end of fiscal 2025 was 34.24, using the closing price on the last trading day of the fiscal year and fiscal 2025 diluted EPS.",
+      "faithfulness": true,
+      "attempts": 0,
+      "answer_attempts": 1,
+      "latency_ms": 23552,
+      "tokens": 6126,
+      "requests": 3,
+      "cached": 0,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "q024",
+      "category": "multi_table",
+      "question": "Which companies grew revenue in fiscal 2025 compared with fiscal 2024 but saw their share price fall from the first to the last trading day of 2025?",
+      "passed": true,
+      "reason": "",
+      "refused": false,
+      "refusal": null,
+      "valid_sql": true,
+      "gold_error": null,
+      "system_sql": "WITH rev AS (SELECT ticker, SUM(CASE WHEN fiscal_year = 2025 THEN revenue ELSE 0 END) AS rev_2025, SUM(CASE WHEN fiscal_year = 2024 THEN revenue ELSE 0 END) AS rev_2024 FROM income_statements WHERE fiscal_year IN (2024, 2025) GROUP BY ticker HAVING SUM(CASE WHEN fiscal_year = 2025 THEN revenue ELSE 0 END) > SUM(CASE WHEN fiscal_year = 2024 THEN revenue ELSE 0 END)), price AS (SELECT ticker, close, ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY trade_date) AS rn_first, ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY trade_date DESC) AS rn_last FROM daily_prices WHERE trade_date >= '2025-01-01' AND trade_date < '2026-01-01'), price_change AS (SELECT f.ticker, f.close AS first_close, l.close AS last_close FROM price AS f JOIN price AS l ON l.ticker = f.ticker AND l.rn_last = 1 WHERE f.rn_first = 1) SELECT r.ticker FROM rev AS r JOIN price_change AS p ON p.ticker = r.ticker WHERE p.last_close < p.first_close ORDER BY r.ticker LIMIT 500",
+      "error": null,
+      "gold_row_count": 9,
+      "system_row_count": 9,
+      "gold_sample": [
+        [
+          "ADBE"
+        ],
+        [
+          "COP"
+        ],
+        [
+          "COST"
+        ],
+        [
+          "HD"
+        ],
+        [
+          "HON"
+        ],
+        [
+          "PEP"
+        ],
+        [
+          "PG"
+        ],
+        [
+          "SHW"
+        ],
+        [
+          "UNH"
+        ]
+      ],
+      "system_sample": [
+        [
+          "ADBE"
+        ],
+        [
+          "COP"
+        ],
+        [
+          "COST"
+        ],
+        [
+          "HD"
+        ],
+        [
+          "HON"
+        ],
+        [
+          "PEP"
+        ],
+        [
+          "PG"
+        ],
+        [
+          "SHW"
+        ],
+        [
+          "UNH"
+        ]
+      ],
+      "answer": "The companies are ADBE, COP, COST, HD, HON, PEP, PG, SHW, and UNH.",
+      "faithfulness": true,
+      "attempts": 0,
+      "answer_attempts": 1,
+      "latency_ms": 39243,
+      "tokens": 5989,
+      "requests": 3,
+      "cached": 0,
+      "cost_usd": 0.0
+    }
+  ]
+}
