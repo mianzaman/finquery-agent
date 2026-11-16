@@ -407,7 +407,8 @@ def test_broken_sql_from_the_model_is_repaired_in_one_attempt(
     from tests.fakes import ScriptedChat, reply
 
     broken = "SELECT revenu FROM income_statements WHERE ticker = 'AAPL'"
-    fixed = "SELECT ticker, name FROM companies WHERE ticker = 'AAPL'"
+    # A count returns one row even on CI's empty database, so the route is the same everywhere.
+    fixed = "SELECT COUNT(*) AS company_count FROM companies"
     model = ScriptedChat(
         replies=[
             reply(f'{{"sql": "{broken}", "tables_used": ["income_statements"]}}'),
@@ -427,7 +428,8 @@ def test_broken_sql_from_the_model_is_repaired_in_one_attempt(
     assert visited(state) == [*TO_VALIDATION, *REPAIR, "execute", *ANSWERED]
     assert state["attempts"] == 1
     assert state["sql"] == f"{fixed} LIMIT 500"  # what ran is the validated, row-limited text
-    assert (state["columns"], state["rows"]) == (["ticker", "name"], [("AAPL", "Apple")])
+    assert state["columns"] == ["company_count"]
+    assert len(state["rows"]) == 1
     assert (state["validation_error"], state["db_error"]) == (None, None)
     # The repair prompt showed the model its query and the database's exact complaint.
     repair_prompt = model.seen[1][0].content
