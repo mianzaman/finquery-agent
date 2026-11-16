@@ -173,11 +173,82 @@ sample, not a full comparison.
 
 ### Why LangGraph
 
+A text-to-SQL agent is not a straight line. A question can be refused, a query can fail
+validation or execution and loop back for repair, and an answer can be rejected and rewritten.
+LangGraph makes those branches explicit: each step is a node with one job, routing lives in
+small functions in `graph.py`, and one typed `AgentState` travels between the nodes. That made
+every route (success, repair, retry limit, refusal) testable with fake nodes before any model
+was involved, and it keeps the number of model calls visible: about three per question, which
+matters on a free tier of 50 requests a day. A single prompt chain would hide the loops inside
+retries, and a framework that lets the model pick its own steps is the opposite of what a
+system that writes database queries needs.
+
 ### Why pgvector
+
+The retrieval corpus is small: a description of every table and column, and 27 worked
+examples. Keeping their embeddings in the same PostgreSQL as the data (pgvector, HNSW index)
+means one service to run, one migration system and retrieval queries that are plain SQL. A
+separate vector database would add a dependency without adding anything at this size.
+Embeddings come from a local model (fastembed `bge-small-en-v1.5`, 384 dimensions), so building
+and searching the index costs no API requests. The column is sized so that OpenAI's
+`text-embedding-3-small` at 384 dimensions could replace it without a migration.
+
+Retrieval itself is what separates the agent from the baseline. The baseline puts the whole
+schema in every prompt. The agent sends only the tables that matter plus the three closest
+examples, and those examples teach the rules a model cannot guess about this data: sum four
+quarters for a fiscal year, take the fiscal Q4 row for a year-end balance sheet, use
+split-adjusted EPS for trends.
 
 ### Why a repair loop
 
+Generated SQL fails in predictable, fixable ways: an unknown column, a function the validator
+does not allow, a type mismatch. The repair node gets the failed SQL and the exact error from
+sqlglot or Postgres and tries again. Repairs are capped at 2, shared by validation and database
+errors and checked before each attempt, so a question costs at most three SQL generations and
+can never loop. After the cap the agent answers with an error note instead of guessing. In the
+hosted sample no repair was needed; small local models needed it often, and one local run showed
+a repair returning the same SQL twice, so stopping early in that case is a planned improvement.
+
 ### Why read-only SQL
+
+The model's output is untrusted input that happens to be SQL, so safety does not depend on the
+prompt. There are three independent layers:
+
+1. **Validation:** sqlglot parses every query and accepts only a single read-only statement
+   over an allow-list of 8 tables and about 85 functions. Allow-lists rather than deny-lists
+   mean anything new is rejected by default.
+2. **Rebuild and dry run:** the query is rebuilt with a 500-row cap, validated again and
+   checked with `EXPLAIN` before it runs.
+3. **Database role:** it runs as `agent_reader`, which can only `SELECT` from the data tables,
+   inside a read-only transaction with a 5-second statement timeout.
+
+If one layer has a gap, the other two still hold.
+
+### Why values are stored as first filed
+
+Companies restate history. After a spin-off or a stock split, later filings recast earlier
+quarters, but only the ones they show. Keeping the latest value for each quarter mixed bases
+within one series: Honeywell's 2025 revenue had one quarter at half the size of its neighbours.
+So every value is stored as the original 10-Q or 10-K reported it, a quarter that would have to
+be derived across a restatement is left empty with a warning, and EPS gets a separate
+split-adjusted view for trends and price ratios. The trade-off is that later corrections are
+ignored, and a series can still step where the company itself changed shape.
+
+### Why the faithfulness check uses rules, not a model
+
+A model can write a fluent answer around a wrong number. Asking a second model to grade the
+first costs another request and can fail the same way. Instead, a deterministic check traces
+every number in the answer back to the rows, allowing for rounding, percentages and simple
+differences or ratios. An unsupported number triggers one rewrite that names it; if the answer
+still fails, the user gets a neutral sentence and the rows. The check cannot tell when a real
+number is attached to the wrong company or period; that limit is listed below.
+
+### Why the model is a setting
+
+The project was built on free tiers: a local Ollama model for development and free OpenRouter
+models for hosted runs. The provider and model are chosen in `.env`, and only `app/llm.py` names
+one, so moving to a paid model is a configuration change. Every results file records the
+provider and model, and the eval refuses to compare runs that used different models.
 
 ## Limitations and next steps
 
