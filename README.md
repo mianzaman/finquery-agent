@@ -8,7 +8,7 @@ and the rows behind it.
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-<!-- Demo GIF goes here: ![Demo](docs/demo.gif) -->
+![FinQuery Agent: a question answered with the SQL and rows behind it](docs/demo.gif)
 
 ## What it does
 
