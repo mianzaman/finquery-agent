@@ -1,21 +1,88 @@
 # FinQuery Agent
 
-Open-source AI financial analyst. Ask a plain-English question about a public US company and a
-LangGraph agent writes, validates and runs SQL over SEC EDGAR and yfinance data in PostgreSQL.
+Ask a plain-English question about a US public company, and a LangGraph agent writes, validates
+and runs the SQL over SEC EDGAR and yfinance data in PostgreSQL. You get the answer with the SQL
+and the rows behind it.
 
-Work in progress. The full README is written in Task 13.
+[![CI](https://github.com/mianzaman/finquery-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/mianzaman/finquery-agent/actions/workflows/ci.yml)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-## Quick start
+<!-- Demo GIF goes here: ![Demo](docs/demo.gif) -->
 
-```bash
-cp .env.example .env          # then fill in your keys
-docker compose up -d db
-uv sync
-uv run pytest -q
-uv run uvicorn app.main:app --reload
+## What it does
+
+- Answers questions about 50 large US companies: lookups, trends, comparisons, rankings, and
+  questions that join financial statements with share prices.
+- Shows its working. Every answer comes with the SQL it ran and the rows it got back, and every
+  number in the answer is checked against those rows.
+- Refuses what the data cannot answer, such as investment advice, forecasts and companies
+  outside the set, and never changes the data.
+
+## Architecture
+
+```mermaid
+graph TD;
+	start([start]) --> guardrail
+	guardrail -.->|out of scope| stop([end])
+	guardrail -.-> intent
+	intent --> entities
+	entities -.->|unknown company| stop
+	entities -.-> retrieve_schema
+	retrieve_schema --> generate_sql
+	generate_sql --> validate_sql
+	validate_sql -.-> execute
+	validate_sql -.->|invalid| repair_sql
+	validate_sql -.->|repairs used up| answer
+	execute -.->|error| repair_sql
+	execute -.-> answer
+	repair_sql --> validate_sql
+	answer -.-> check_answer
+	answer -.-> stop
+	check_answer -.->|numbers OK| stop
+	check_answer -.->|unsupported number| answer
+	check_answer -.->|still unsupported| fallback_answer
+	fallback_answer --> stop
 ```
 
-## Switching models
+- **Guardrail, intent, entities:** one model call refuses out-of-scope questions, names the kind
+  of question and finds the companies. The companies and fiscal periods are then resolved
+  against the database.
+- **Retrieve schema:** the question is embedded and matched against column descriptions and
+  example questions in pgvector. Only the tables that matter go into the prompt.
+- **Generate, validate, execute:** the model writes one `SELECT`. sqlglot checks it, and it runs
+  as a read-only role. If validation or execution fails, the repair node gets the exact error
+  and tries again, up to 2 times.
+- **Answer, check answer:** the model writes the answer from the rows. A rule-based check traces
+  every number back to the rows. An answer with an unsupported number is rewritten once, and if
+  it still fails, the user gets a neutral sentence with the rows instead.
+
+## Quickstart
+
+You need Docker, [uv](https://docs.astral.sh/uv/) and an LLM. A free
+[OpenRouter](https://openrouter.ai/keys) key works, and so does a local
+[Ollama](https://ollama.com) model (see [Switching models](#switching-models)).
+
+```bash
+git clone https://github.com/mianzaman/finquery-agent.git
+cd finquery-agent
+cp .env.example .env    # set OPENROUTER_API_KEY, LLM_MODEL and SEC_USER_AGENT
+docker compose up -d db
+uv sync
+uv run python -m db.migrate
+uv run python -m ingestion.load_all          # SEC financials, prices, dividends, splits
+uv run python -m ingestion.build_embeddings  # schema docs and examples, embedded locally
+docker compose up -d
+```
+
+Open the UI at <http://localhost:8501>. The API is at <http://localhost:8000> (`POST /ask`,
+`GET /health`, `GET /schema`).
+
+SEC EDGAR asks every client for a `User-Agent` with a contact email, so set
+`SEC_USER_AGENT` before you load the data. The first data load downloads about 50 SEC files
+and five years of prices. Running a loader again changes nothing.
+
+### Switching models
 
 The model is set in `.env`. Pick one block:
 
@@ -42,15 +109,97 @@ GOOGLE_API_KEY=...
 LLM_MODEL=<Gemini model id>
 ```
 
-For one eval run, flags override `.env` without editing it (they also drop
-`LLM_FALLBACK_MODELS`):
+## Example questions
+
+- What was Tesla's closing share price on 30 June 2026?
+- How has Nvidia's quarterly revenue changed over its last 8 quarters?
+- Compare Visa's and Mastercard's net income in fiscal 2025.
+- Which 5 companies had the highest total revenue in fiscal 2025?
+- What was Apple's price-to-earnings ratio at the end of fiscal 2025, using the closing price on
+  the last trading day of the fiscal year and fiscal 2025 diluted EPS?
+- Which companies grew revenue in fiscal 2025 compared with fiscal 2024 but saw their share price
+  fall from the first to the last trading day of 2025?
+
+## Evaluation
+
+The eval set (`evals/questions.jsonl`) has 30 questions: 26 answerable ones in five categories,
+each with gold SQL, and 4 that must be refused. A question passes when the system's rows match
+the gold rows. The **baseline** is a single prompt with the full schema and no agent.
 
 ```bash
-uv run python -m evals.run_eval --system agent --provider ollama --model qwen2.5-coder:3b
-uv run python -m evals.run_eval --system agent --model <another model of the .env provider>
+uv run python -m evals.run_eval --system baseline
+uv run python -m evals.run_eval --system agent
+uv run python -m evals.run_eval --compare       # latest baseline and agent runs side by side
 ```
 
-Every results file records the provider and the model. `--resume` only continues a run made
-with the same model, and `--compare` refuses runs made with different models unless you pass
-`--allow-mixed`. Results from a small local model are for checking the pipeline; do not compare
-them with a hosted model's. Ollama runs are saved in `evals/results/local/`.
+Results on OpenRouter `nvidia/nemotron-3.5-super-vl:free`, cost $0:
+
+| | Baseline | Agent |
+|---|---|---|
+| Questions | 30 | 10-question sample, 2 per category |
+| Execution accuracy | 88.5% (23 of 26) | 100% (10 of 10) |
+| Same 10 questions | 8 of 10 | 10 of 10 |
+| Valid SQL | 100% | 100% |
+| Faithfulness (numbers traced to rows) | n/a | 100% (10 of 10) |
+| Repairs needed | n/a | 0 |
+| Refusals | 100% (4 of 4) | 100% (4 of 4, separate run) |
+| Latency p50 / p95 | 6.3 s / 23.5 s | 18.2 s / 39.2 s |
+| Tokens per question | 1,835 | 4,618 |
+
+Sources: `evals/results/2026-11-15_0537_baseline.json` (accuracy),
+`2026-11-15_0524_baseline.json` (baseline latency and tokens; the later run used cached replies),
+`2026-11-16_1649_agent.json` (agent) and `2026-11-15_1809_agent.json` (refusals). The agent was
+run on a 10-question sample to fit the free tier's 50 requests a day, so these numbers are a
+sample, not a full comparison.
+
+<!-- Ablation table goes here once the eval set has 60+ questions. -->
+
+## Safety
+
+- **Read-only role:** agent SQL runs as `agent_reader`, which can only `SELECT` from the data
+  tables, inside a read-only transaction.
+- **sqlglot validation:** every query is parsed before it reaches the database. It must be
+  exactly one read-only query, on the allowed tables only, calling only functions on an
+  allow-list. That blocks sleeping, taking locks, reading server settings, turning off the
+  timeout and running SQL hidden in a string. The query is rebuilt with a 500-row cap, and
+  `EXPLAIN` catches unknown columns before anything runs.
+- **Timeouts:** each query has a 5-second statement timeout, set on the role and again in each
+  transaction. The API also limits requests per client and questions answered at once.
+- **Faithfulness check:** a rule-based check, with no model, traces every number in the answer
+  to the rows, allowing for rounding, percentages and simple differences or ratios. Unsupported
+  numbers trigger a rewrite and then a neutral fallback.
+
+## Design decisions
+
+### Why LangGraph
+
+### Why pgvector
+
+### Why a repair loop
+
+### Why read-only SQL
+
+## Limitations and next steps
+
+- **Scope:** 50 companies, quarterly financials from 2021 to 2026 Q3, and daily prices from
+  November 2021. No real-time prices and no companies outside the set.
+- **Small eval:** 30 questions, and the agent was scored on a 10-question sample. The next step
+  is growing the set to 60+ questions with harder cases, then an ablation study that measures
+  each part of the graph.
+- **Faithfulness check limits:** it catches invented numbers, but not a real number given to the
+  wrong company or period.
+- **Small local models** make more mistakes. In local runs, wrong scale ("30.71 million" for
+  billions) was the most common one. Use them for trying the pipeline.
+- **Planned:** tracing, clarifying questions, follow-up memory, chart output and an MCP tool.
+
+## Data and disclaimer
+
+Financial statements come from [SEC EDGAR](https://www.sec.gov/edgar) (XBRL company facts), and
+prices, dividends and splits from Yahoo Finance via [yfinance](https://github.com/ranaroussi/yfinance).
+Data may contain errors.
+
+**This is not investment advice.** FinQuery is a portfolio project for exploring text-to-SQL.
+
+## License
+
+[MIT](LICENSE)
