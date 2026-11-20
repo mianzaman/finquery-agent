@@ -113,7 +113,7 @@ LLM_MODEL=<Gemini model id>
 
 - What was Tesla's closing share price on 30 June 2026?
 - How has Nvidia's quarterly revenue changed over its last 8 quarters?
-- Compare Visa's and Mastercard's net income in fiscal 2025.
+- Compare Visa's and Mastercard's net income in fiscal 2025...
 - Which 5 companies had the highest total revenue in fiscal 2025?
 - What was Apple's price-to-earnings ratio at the end of fiscal 2025, using the closing price on
   the last trading day of the fiscal year and fiscal 2025 diluted EPS?
